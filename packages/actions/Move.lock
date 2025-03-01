@@ -2,11 +2,10 @@
 
 [move]
 version = 3
-manifest_digest = "DEC83F039D8F304EC81EDB66DB9D443C6F05E6EC8EB35D4FB7E7F3F11E94E96D"
-deps_digest = "397E6A9F7A624706DBDFEE056CE88391A15876868FD18A88504DA74EB458D697"
+manifest_digest = "61FF95B494313585DB45F52C0C5108BEA6288EF24A8D444779994605DA4AAFFF"
+deps_digest = "F9B494B64F0615AED0E98FC12A85B85ECD2BC5185C22D30E7F67786BB52E507C"
 dependencies = [
   { id = "AccountExtensions", name = "AccountExtensions" },
-  { id = "AccountMultisig", name = "AccountMultisig" },
   { id = "AccountProtocol", name = "AccountProtocol" },
   { id = "Kiosk", name = "Kiosk" },
   { id = "Sui", name = "Sui" },
@@ -21,16 +20,6 @@ dependencies = [
 ]
 
 [[move.package]]
-id = "AccountMultisig"
-source = { local = "../configs/multisig" }
-
-dependencies = [
-  { id = "AccountExtensions", name = "AccountExtensions" },
-  { id = "AccountProtocol", name = "AccountProtocol" },
-  { id = "Sui", name = "Sui" },
-]
-
-[[move.package]]
 id = "AccountProtocol"
 source = { local = "../protocol" }
 
@@ -41,7 +30,7 @@ dependencies = [
 
 [[move.package]]
 id = "Kiosk"
-source = { git = "https://github.com/thounyy/apps.git", rev = "testnet", subdir = "kiosk" }
+source = { git = "https://github.com/mcxross/apps.git", rev = "testnet", subdir = "kiosk" }
 
 dependencies = [
   { id = "Sui", name = "Sui" },
@@ -60,14 +49,14 @@ dependencies = [
 ]
 
 [move.toolchain-version]
-compiler-version = "1.42.1"
+compiler-version = "1.43.1"
 edition = "2024.beta"
 flavor = "sui"
 
 [env]
 
-[env.testnet]
-chain-id = "4c78adac"
-original-published-id = "0xb42f63f94fc96385b0674a068c7a0b5e7b8dd647d795cb0ea9c8bc6b647a2238"
-latest-published-id = "0xb42f63f94fc96385b0674a068c7a0b5e7b8dd647d795cb0ea9c8bc6b647a2238"
+[env.localnet]
+chain-id = "3443387d"
+original-published-id = "0x0f6fa16d4374115beb6c498560baa75c6a8bb55a479fbbc82f5fc4edd0830d17"
+latest-published-id = "0x0f6fa16d4374115beb6c498560baa75c6a8bb55a479fbbc82f5fc4edd0830d17"
 published-version = "1"

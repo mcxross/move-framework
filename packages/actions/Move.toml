@@ -11,7 +11,7 @@ rev = "framework/mainnet"
 override = true
 
 [dependencies.Kiosk]
-git = "https://github.com/thounyy/apps.git"
+git = "https://github.com/mcxross/apps.git"
 subdir = "kiosk"
 rev = "testnet"
 
@@ -23,7 +23,7 @@ local = "../extensions"
 
 [addresses]
 account_multisig = "0x05d1c7b7b4381fb78b70ccb7f7c0786a383b74a3149b53661d5c759f968edf54"
-account_actions = "0xb42f63f94fc96385b0674a068c7a0b5e7b8dd647d795cb0ea9c8bc6b647a2238"
-account_protocol = "0x4803761efb11498331d8e70c741602dbbe2ddc97f667174931ccc669fd4fb958"
-account_extensions = "0xe59b21cc35bf31b7cbc3e3f309fa810e059e481322ecf96518a608a15503b6d2"
-kiosk = "0xbd8fc1947cf119350184107a3087e2dc27efefa0dd82e25a1f699069fe81a585"
+account_actions = "0x0f6fa16d4374115beb6c498560baa75c6a8bb55a479fbbc82f5fc4edd0830d17"
+account_protocol = "0x881a13296bd931694fc9260ad1c81cd1a7dcd8793bc0200d95e4af413c34b64e"
+account_extensions = "0x78176a75fe6c33bcf2ded013e74c466e9dac88c6d82347c94f15d139dee17e9e"
+kiosk = "0xce51c74a08f7c6f3b4823a3cf619f526d89eb42f5f8c86b8845cc6feda407472"
