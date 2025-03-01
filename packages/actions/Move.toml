@@ -22,7 +22,6 @@ local = "../protocol"
 local = "../extensions"
 
 [addresses]
-account_multisig = "0x05d1c7b7b4381fb78b70ccb7f7c0786a383b74a3149b53661d5c759f968edf54"
 account_actions = "0x0f6fa16d4374115beb6c498560baa75c6a8bb55a479fbbc82f5fc4edd0830d17"
 account_protocol = "0x881a13296bd931694fc9260ad1c81cd1a7dcd8793bc0200d95e4af413c34b64e"
 account_extensions = "0x78176a75fe6c33bcf2ded013e74c466e9dac88c6d82347c94f15d139dee17e9e"
