@@ -1,6 +1,10 @@
 {
-  "name": "kraken",
+  "name": "accountdottech",
+  "version": "1.0.0",
   "type": "module",
+  "scripts": {
+    "publish": "bun run src/publish"
+  },
   "devDependencies": {
     "@types/bun": "latest",
     "@typescript-eslint/parser": "^6.21.0",
