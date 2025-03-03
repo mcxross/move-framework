@@ -1,148 +1,180 @@
-# account.tech - Account Abstraction infrastructure on Sui
+# account.tech - Move Framework for Smart Accounts
 
 ![account.tech logo](./assets/accountdottech_logo.png)
 
 ## Project Overview
 
+This project aims to provide the robust foundations developers need to build secure and user-friendly experiences on Sui.
+
 ### Abstract
 
-This project provides the security layer of Sui, an account abstraction protocol enabling organizations to safely interact with valuable assets and programmable objects via Smart Accounts.
+We're establishing a new object standard on Sui that transforms basic addresses into powerful Smart Accounts. This extension of Sui accounts provides native support for all standardized Sui objects and essential built-in features, freeing developers to focus on innovation rather than rebuilding core functionality.
 
-Smart Accounts can have different configurations such as Multisig, DAO, and anything else you can imagine.
+While Smart Accounts provide a secure execution layer, they remain fully customizable at the application level. Each project can define new [Smart Account types](https://github.com/account-tech/move-registry) to implement its own rules and features while inheriting standardized security measures and base functionality. This unique approach combines enterprise-grade reliability with unlimited flexibility.
 
-### Goals
+Our standardized interfaces simplify object management, offering developers an intuitive way to leverage Sui's object-centric model. The system operates on an intent-based architecture where actions must pass through configurable resolution rules before execution. This creates a powerful yet flexible framework where Move developers can freely define new actions and intents, either for specific applications or as reusable libraries.
 
-Our vision is to create a robust and modular infrastructure that not only supports a wide array of applications but also enables the development of our own suite of secure and friendly platforms, starting with Multisig and DAO.
+### Design Principles
 
-The primary goal is to provide friendly and secure interfaces for any organization to manage assets held in Treasuries or Kiosks, as well as packages and more. Businesses should be able to handle all their processes on-chain with ease and in all safety. That is why Smart Accounts will support all existing Sui objects such as Kiosks, UpgradeCap, TreasuryCap but also TransferPolicyCap, Display object and any other custom objects people come up with. 
+Our framework is built on four core design principles that guide our development and ensure we create a robust, flexible system for smart accounts on Sui.
 
-The second criteria we set is complete modularity and extensability. We don't want people to be limited by our decisions. 
-So, when creating a smart account it can be configured in different ways. Meaning the user can choose a Multisig-like configuration like [Squads](https://squads.so/), with members, weights, roles and thresholds. But they could also choose to set up the smart account as a dao governed by a coin or a nft. In any case, the smart account will always be the same Account object with the same apis.
+#### Modularity
 
-Then account.tech provides many built-in features such as payments and vesting, transfers and airdrops, nft management via kiosks, spending limits with Treasuries, and anything related to package management with UpgradeCap.
+Our smart accounts are designed as shared objects with a unified interface that handles core logic and manages the intent creation and execution flow. The beauty lies in the flexibility of the account rules and intent resolution, which can be configured to fit specific needs.
 
-But if a developer wants to execute specific actions with his smart account that are not included by default, he can easily define custom actions and use them within a custom proposal.
-This project will eventually include different front-ends as well as a [Typescript SDK](https://github.com/gmove-io/kraken-sdk) and a CLI to streamline operations.
+Configurations are versatile structs that can be customized to fit any requirement. By default, we offer Multisig as well as coin-based and NFT-based DAO configurations. These preset options define specific rules and parameters such as thresholds, roles, members, and weights in the case of the Multisig, or quorum, vote rules and governing asset for DAOs.
 
-### Configurations
+The true power of our system is its adaptability – any type of configuration with custom rules can be implemented without necessitating a core protocol upgrade.
 
-Multisig Smart Accounts are built from the ground up for teams and developers. The protocol provides all functionalities needed to manage on-chain projects, assets and funds. Parameters are fully customizable with members, weights, roles and thresholds management.
+#### Compatibility
 
-DAO Smart Accounts will come next.
+Smart Accounts seamlessly interact with owned objects, mirroring the functionality of standard Sui accounts. account.tech goes a step further by providing custom interfaces for effortless interaction with standard Sui objects and straightforward integration with custom objects. Our roadmap includes support for all known objects on Sui, along with extended capabilities for them.
+
+Beyond basic compatibility, our interfaces introduce important policies missing from Sui's core framework. These include essential security features like upgrade time locks and currency supply controls, providing built-in protection that traditionally requires custom development.
+
+Front-end applications leveraging our protocol, such as our Multisig platform, can utilize the Move interfaces provided for each object type. This enables the creation of user-friendly experiences that abstract away the complexities of managing multiple objects from different packages.
+
+#### Extensibility
+
+account.tech serves as fundamental security infrastructure for the Sui ecosystem, built on principles of modularity and extensibility that enable seamless integration at any level of complexity.
+
+On-chain organizations can immediately secure their assets and operations through our ready-to-use applications like Multisig and DAO platforms, requiring zero additional code. For development teams, our SDK provides programmatic access to these capabilities, allowing them to extend functionality within their applications and backends without direct blockchain interaction.
+
+More advanced users can deeply integrate with our protocol, embedding custom actions and intents directly into their smart contracts through our comprehensive interfaces. This flexibility also enables innovators to create entirely new configurations to build secure, intuitive platforms atop our infrastructure while maintaining enterprise-grade security standards.
+
+#### Trustless
+
+Smart Accounts explicitly declare and upgrade package dependencies allowed to modify their state. This approach ensures a trustless environment by preventing the execution of unauthorized or potentially malicious code without the account members’ consent.
+
+### Smart Account
+
+Smart Accounts represent an advanced form of Sui accounts. They are designed with flexible and customizable ownership rules and rich functionality based on intents.
+
+An intent is an on-chain operation that is executed in multiple steps:
+- a user creates an intent to do an action
+- the intent is resolved according to the Smart Account's `Config`
+- when the conditions are met, the intent can then be executed by anyone
+
+Each Smart Account type has a specific `Config` and its associated intents have a specific `Outcome`.
+
+The `Config` is a struct that contains the "parameters" or "ownership rules" for the Smart Account. It can be anything you want, from a simple threshold to a voting system, to a recovery mechanism.
+
+The `Outcome` is a struct that holds the status of the intent resolution, according to the `Config`. It can be the votes that have been cast, the approvals that have been given, the amount of coin that has been spent, etc.
 
 ### Features
 
-- **On chain Registration**: Create a User profile object to track your multisigs on-chain. Add a username and profile picture to be displayed on the front-ends. Send and receive invites to join multisigs on-chain. 
-- **Configuration**: Set up the Smart Account's configuration based on the type of Smart Account. For each proposal, define an expiration epoch and schedule an execution time. Explicitly migrate to new versions of the Kraken Extensions to benefit from new features built by the Good Move team and the community.
-- **Asset Management**: Manage and send coins or any other object type owned by an Account in a natural way. Containerize and spend coins with Treasuries, and NFTs with Kiosks. Transfer and de/list NFTs from/to the Account's Kiosks. Easily hide spam objects owned by a Smart Account.
-- **Payment Streams**: Pay people by creating streams that will send an amount of coin to an address at regular frequency. Cancel the payment at any time. Make a delivery by enabling a recipient to claim a payment from an escrow. Retrieve the payment if you made a mistake and if it hasn't been claimed.
+- **On Chain Registration**: Create a User profile object to track your smart accounts on-chain. Send and receive invites to join smart accounts on-chain.  We use SuiNS to display a username and profile picture on the front-ends. 
+- **Configuration**: Set up the Smart Account's configuration based on the type of Smart Account. For each proposal, define an expiration epoch and schedule one or more execution times, making the intent recurring. Explicitly add and migrate to new dependencies to benefit from new features built by the Good Move team and the community.
+- **Granular Control**: Assign roles to addresses to define specific permissions for actions and users.
+- **Asset Management**: Manage and send coins or any other object type owned by an Account in a natural way. Containerize and spend coins with Vaults, and NFTs with Kiosks. Transfer and de/list NFTs from/to the Account's Kiosks.
+- **Payments and Vestings**: Pay people by issuing recurring transfer intents and create vestings. Cancel the payment or vesting if you made a mistake or if it hasn't been claimed.
 - **Currency Management**: Lock a TreasuryCap and enable/disable the minting and/or burning of Coins. Update its CoinMetadata. Send and airdrop minted coins.
-- **Access Control**: Define any action in your own module and securely manage its execution via the Account. Check out the [examples](./package/examples/sources/access_control.move). Secure your Caps access within the Account.
-- **Package Upgrades**: Lock your UpgradeCaps in your Account to enforce agreement on the code to be published. Any rule(s) can be defined for an UpgradeLock. An optional time-lock built-in policy is provided by default to protect your users. The SDK will facilite the display of upcoming upgrades on your dapp.
-- **Validator Monitoring**: Safely manage your validator. (TODO)
+- **Access Control**: Define any action in your own module and securely manage its execution via the Account. Check out the [examples](./package/examples/sources/). Secure your Caps access within the Account.
+- **Package Upgrades**: Lock your UpgradeCaps in your Account to enforce agreement on the code to be published. An optional time-lock built-in policy is provided by default to protect your users.
 - **Interact with dApps**: Easily interact with dApps on Sui that are integrated to the Smart Account. Stake, Swap, Lend your assets, and more. (TODO)
 
 ## Architecture
 
 ![account.tech architecture graph](./assets/accountdottech_architecture.png)
 
-### Core Packages 
+### Framework Packages
 
-The Move code has been designed to be highly modular. There are currently 4 packages but there could be many more, including from external contributors. 
+The Move code has been designed to be highly modular. There are currently 3 packages but we plan to add more, including external protocol integrations. 
 
-The first one is `AccountProtocol` managing the multisig `Account` object and the proposal process. The `Account` object encapsulates 3 custom types managing its dependencies, metadata (incl. name) and proposals.
+#### Extensions
 
-These fields can be accessed mutably from the core packages only. Core Packages are `AccountProtocol` `AccountMultisig` and `AccountActions`. The latter defines proposals to modify `Account` fields.
+Since anyone can create modules to extend the protocol, smart accounts have to explicitly declare which package (dependency) is authorized to modify its state. For this reason, there is an `AccountExtensions` package which is managing an `Extensions` object tracking allowed packages and their different versions. 
 
-### Extensions
+Due to the immutable nature of packages, Accounts must also explicitly migrate to the new version of a package they wish to use. So unlike on other chains, malicious code can't be added to a smart account without the account members' consent.
 
-Since anyone can create modules to extend the protocol, smart accounts have to explicitly add which package or dependency is authorized to modify its state. For this reason, there is an AccountExtensions package which is managing an Extensions object tracking allowed packages and their different versions. 
+Each Account can opt-in to authorize "unverified deps" which are packages that are not listed in the `Extensions` object. This is useful for developers who don't need their dependency to be globally accessible.
 
-Account members must add the dependencies they want to use and when upgraded, they have to explicitly migrate to the version they wish to use. So unlike on Solana, developers won't be able to scam smart accounts by upgrading to malicious code. 
+#### Protocol
 
-In Extensions, three of our packages are defined as core dependencies. AccountProtocol handles the logic of the smart accounts and the proposals. AccountMultisig defines multiple parameters (like Multisig or DAO) for accounts and how to resolve the proposal before execution, and AccountActions defines built-in features like dependencies management. Core dependencies are the only one that have privileged access to the Account objects. With this pattern, we replicate the behavior of `public(package)` but across multiple packages.
+The `AccountProtocol` package is handling the `Account` logic and the intent process. The `Account` object encapsulates 3 custom types managing its dependencies, metadata (incl. name) and intents.
 
-### Module Structure
+The metadata and dependencies can only be accessed mutably via an action defined in this same package and that must be wrapped into an intent. The intents can only be handled within the module that defines the Account `Config` type. This ensures that the Account state can't be modified without proper intent resolution.
 
-Each module may define none or multiple actions and/or proposals. Each Proposal has an associated `NameProposal` witness type used for many checks (see below). Public functions are divided in three parts: 
+Dynamic fields can freely be added to the `Account` object by any module. It is recommended to use custom types for the keys to avoid conflicts and enforce permissioned access.
 
-- member functions can be executed without proposals by all members of the Account.
-- proposal functions are used to create proposals and execute actions upon approval.
-- action functions are the library functions and can be used to compose proposals.
+#### Actions
 
-### Authentification
+The `AccountActions` package defines a collection of actions that corresponds to unit on-chain operations. They can not be used as is but are meant to be used as building blocks to compose intents.
 
-Before creating a proposal or execute any member-only action, a user must authenticate himself as a valid member of the Account with an optional role. It creates a hot potato which is destroyed upon verification.
+Based on these actions, multiple intents are defined and can be used with any `Account` `Config` type.
 
-### Issuer
+### Modules Structure
 
-Each proposal stores a special Issuer type constructed from an associated witness (struct with drop ability), an optional name and the address of the Account. This Issuer is used to enforce the correct and complete execution of the proposal, facilitate parsing on front-ends and define roles.  
+Actions and intents are defined in different modules to achieve a better separation of concerns.
 
-These roles can be added to members who can then bypass the global threshold if the role threshold is reached. Members have weights enabling super admins and more.
+#### Actions
 
-### Object handling
+Actions are "low-level". It defines a basic operation that can not be executed by itself, it needs to be composed with other actions. (e.g. `Transfer` can't be executed directly as we need something to transfer. It can be used with a `Withdraw` action to receive and transfer an object from the Account.)
 
-An `Account` can possess and interact with objects in two different ways.
+Developers can define their own actions in their own modules.
+ 
+#### Intents
 
-Using transfer to object (tto), we replicated the behavior of classic Sui accounts, enabling Accounts to receive, own and interact any kind of object.
+Intents are "high-level". They are composed of one or more actions that are executed in the order they are stacked.
 
-Then we separate managed assets, which are special and standardized objects from the Sui Framework and more. Those are attached as dynamic fields to `Account` objects allowing us to abstract, secure and provide granular control to many processes such as upgrading packages, managing a Coin, handling access control, etc.
+Developers can define their own intents using actions defined in different modules, at the condition they are added to the account dependencies.
 
-This design allows us to manage the packages with a special `Account` object which is instatiated upon deployment and uses this access control mechanism.
+### Objects handling
+
+An `Account` can possess and interact with objects in two different ways:
+
+- Using transfer to object (tto), we replicated the behavior of classic Sui accounts, enabling Accounts to receive, own and interact any kind of object.
+- Using dynamic fields, we can attach managed assets to the `Account` object. This allows us to abstract, secure and provide granular control to many processes such as upgrading packages, managing a Coin, handling access control, etc.
 
 ## Usage
 
-![proposal flow graph](./assets/proposal_flow.png)
+![proposal flow graph](./assets/intent_flow.excalidraw.png)
 
-### Proposal Flow
+### Intent Flow
 
-1. User must authenticate himself by calling `multisig::authenticate()` or similar in anothe configuration module.
-2. Then the outcome can be initialized for the configuration by calling `multisig::empty_outcome()`.
-3. Proposals are then created via `propose_` functions within modules, by stacking one or more predefined actions.
-4. Members of the Account can approve the proposal by calling `multisig::approve_proposal`. Optionally, members can `multisig::remove_approval`. This increases the `global_weight` field of the Proposal and the `role_weight` field if the member posseses the role.
-5. Once the threshold is reached, the proposal is executed by calling the `multisig::execute_proposal` function, validating the `Outcome` and an `Executable` hot potato wrapping the action bag and `Issuer`.
-6. Actions are executed by passing the `Executable hot potato` to the `execute_` function of the module.
-7. Finally, all actions and the `Executable` hot potato must be destroyed via `complete_` functions within the same module as the proposal was created (if it hasn't been consumed during execution).
-
-### Actions
-
-Actions are struct with `store` only ability. These actions are meant to be stacked in proposals and executed sequentially. They all have a similar interface to handle their lifecycle, which is used to compose proposals. 
-
-Actions are created by passing a `Proposal` and are destroyed from within the `Executable`. This way we ensure they can't be dropped or stored and must be executed as expected.
-
-The `account` module defines a common interface for adding actions to a Proposal which is stored in the `Account` VecMap. The keys are supposed to be unique human-readable identifiers to display on the frontends.
+1. User must authenticate by getting an `Auth` instance in the account config module.
+2. Then an empty `Outcome` can be initialized for the intent.
+3. An intent can then be created via `request_intentname()` functions within intent modules.
+4. The intent must be resolved by validating the `Outcome` as defined in the account config module. (e.g. approving the intent to reach a threshold for a multisig)
+5. Once the conditions are met, the intent is executed by calling the `execute_intent()` function defined in the config module. An `Executable` hot potato ensuring proper execution is returned.
+6. Actions are executed sequentially by passing the `Executable hot potato` to `execute_intentname()`.
+7. Optionally, the `Executable` hot potato must be destroyed via `complete_intentname()` (if it hasn't been consumed during execution).
 
 ### Integration
 
-Anyone can define custom actions and proposals in their own package or separate library! Please refer to the [examples](./examples/) for some use cases.
+Anyone can define custom actions and intents in their own package or separate library! Please refer to the [examples](./examples/) for some use cases. You can also create new smart account types in [move-registry](https://github.com/account-tech/move-registry).
 
-Create a new proposal by defining a `propose_actions()` function that will instantiate a Proposal containing the actions of your choice. Then write a `execute_actions()` function that will execute the actions according to their logic. Add a `complete_actions()` function to destroy the actions and the `Executable` hot potato if it can't be done during the precedent step (if you need to loop over `execute_actions()` for instance).
+Create a new intent by defining a `request_intent()` function that will instantiate an `Intent` and add the actions of your choice to it. Then write a `execute_intent()` function that will execute the actions according to their logic. Add a `complete_intent()` function to destroy the actions and the `Executable` hot potato if it can't be done during the precedent step (if you need to loop over `execute_intent()` for instance).
 
-Create new actions by defining structs with store only ability carrying the data you need. These actions are instantiated via `new_action()` functions that takes a mutable reference to the proposal. Then they are executed by calling `action()` with the `Executable` hot potato as argument. Finally the action execution should be validated and destroyed by calling `destroy_action()`.
+Create new actions by defining structs with store only ability carrying the data you need. These actions are instantiated via `new_action()` functions that takes a mutable reference to the intent. Then they are executed by calling `do_action()` taking the `Executable` hot potato as argument. After execution, the intent is destroyed which returns an `Expired` hot potato wrapping the actions. Each action must be destroyed in its own module by calling `delete_action()`.
 
 ### Modules
 
-The project is splitted in multiple packages to improve the security. Indeed, the core packages have no external dependency so they are less vulnerable and don't necessitate regular upgrades because of third party packages. 
+The project is splitted in multiple packages to improve the security. Indeed, some packages have no external dependency so they are less vulnerable and don't necessitate forced upgrades because of third party packages. 
 
-Furthermore, the `AccountProtocol` shouldn't need to be upgraded since its functionalities will not change except with a major evolution of the protocol. `AccountMultisig` will be upgraded to add new configuration options. `AccountActions` will be upgraded to add new features and `AccountExtensions` could be made immutable.
+`AccountExtensions` could be made immutable to guarantee `Extension` can't be compromised.
 
-`AccountActions` consists of several modules, with built-in actions and proposals, each handling different aspects of the multisig functionality:
+Furthermore, the `AccountProtocol` shouldn't need to be upgraded since its functionalities will not change except with a major evolution of the protocol. It provides two modules with sensitive actions:
 
-1. **Config**: Enables the modification of the Account settings such as member addition or removal, threshold changes, roles addition, and name update, as well as the Account dependency management.
+1. **Config**: Enables the modification of the Account Metadata. It also handles the management of the Account dependencies.
+
+2. **Owned**: Manages access to objects owned by the Account, allowing them to be withdrawn through intents. Withdrawn objects can be used in transfers, vestings and anything else.
+
+`AccountActions` consists of several modules, with several actions and intents, each handling different aspects of the smart account functionality:
+
+1. **Access Control**: Lock Caps into the Account and borrow them upon intent execution.
 
 2. **Currency**: Allows creators to lock a TreasuryCap and limit its permissions. Members can mint coins and use them in transfers or payments. Mint can be disabled upon lock.
 
-3. **Kiosk**: Handles the creation of a Kiosk, which is a container for NFTs owned by the Account. The Kiosk module can be used to move NFTs between the Account and other Kiosks. NFTs can listed and delisted from the Kiosk and profits can be withdrawn. Each Kiosk has a matching role that can be assign to members.
+3. **Kiosk**: Handles the creation of a Kiosk, which is a container for NFTs owned by the Account. The Kiosk module can be used to move NFTs between the Account and other Kiosks. NFTs can listed and delisted from the Kiosk and profits can be withdrawn.
 
-4. **Owned**: Manages access to objects owned by the multisig, allowing them to be withdrawn or borrowed through proposals. Withdrawn objects can be used in transfers and payments.
+4. **Vestings**: Defines APIs for creating vestings for a Coin that are used in other modules like `owned`, `currency` and `vault`. 
 
-5. **Payments**: Defines APIs for creating payments streams and escrows for a Coin that are used in other modules like `owned`, `currency` and `treasury`. The payment is done by sending an amount of the coin to the recipient at a regular interval until the balance is empty. Alternatively, the Coin could be manually claimed. Paid or escrowed coins can be cancelled and retrieved by members as long as they have not been sent or claimed.
+5. **Transfers**: Defines APIs for transferring objects from an Account. These objects are retrieved by withdrawing them from owned, spending them from vault, minting them from currency, or anything else you want to define.
 
-6. **Transfers**: Defines APIs for transferring objects from an Account. These objects are retrieved by withdrawing them from owned, spending them from treasury, minting them from currency, or anything else you want to define.
+6. **Vaults**: Allows members to open containers for Coins and assign members to them via roles. Coins held there can be transferred, paid and more using the Spend action.
 
-7. **Treasury**: Allows members to open containers for Coins and assign members to them via roles. Coins held there can be transferred, paid and more using the Spend action.
-
-8. **Upgrade Policies**: Secure UpgradeCaps by locking them into the Multisig and define custom rules for the UpgradeLock. It provides a default TimeLock rule. Members can propose to upgrade and restrict their packages.
+7. **Package Upgrades**: Secure UpgradeCaps by locking them into the Account and set a TimeLock.
 
 ## Additional Information
 
@@ -150,11 +182,11 @@ Furthermore, the `AccountProtocol` shouldn't need to be upgraded since its funct
 
 Currently, only the transaction digest is accessible within Move. Since it includes the gas object, we can't use it to execute arbitrary move call via the smart contract multisig.
 
-[A SIP](https://github.com/sui-foundation/sips/pull/37) has been submitted by our team to propose to expose more data from the transaction context on chain.    
+[A SIP](https://github.com/sui-foundation/sips/pull/37) has been submitted by our team to propose to expose more data from the transaction context on chain. The SIP is currently paused while we explore other potential solutions such as sponsored transactions.
 
 ### Contributing
 
-Contributions are welcome! If you have suggestions for improvements or new features, please open an issue or submit a pull request. Please feel free to reach out [on Twitter](https://twitter.com/BL0CKRUNNER) if you have any question.
+Contributions are welcome! If you have suggestions for improvements or new features, please open an issue or reach out [on Twitter](https://twitter.com/BL0CKRUNNER) before submitting a PR.
 
 ### License
 
