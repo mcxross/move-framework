@@ -375,7 +375,7 @@ fun test_request_execute_mint_and_vest() {
     scenario.next_tx(OWNER);
     let stream = scenario.take_shared<Vesting<CURRENCY_INTENTS_TESTS>>();
     assert!(stream.balance_value() == 5);
-    assert!(stream.last_claimed() == 0);
+    assert!(stream.last_claimed() == 1);
     assert!(stream.start_timestamp() == 1);
     assert!(stream.end_timestamp() == 2);
     assert!(stream.recipient() == @0x1);
