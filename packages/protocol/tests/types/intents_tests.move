@@ -63,6 +63,7 @@ fun test_getters() {
     let intent1 = intents.get(b"one".to_string());
     assert!(intent1.issuer().account_addr() == @0x0);
     assert!(intent1.description() == b"".to_string());
+    assert!(intent1.creator() == OWNER);
     assert!(intent1.execution_times() == vector[0]);
     assert!(intent1.expiration_time() == 1);
     assert!(intent1.actions().length() == 0);

@@ -19,44 +19,39 @@ use account_protocol::issuer::Issuer;
 
 // === Errors ===
 
-#[error]
-const EIntentNotFound: vector<u8> = b"Proposal not found for key";
-#[error]
-const EObjectAlreadyLocked: vector<u8> = b"Object already locked";
-#[error]
-const EObjectNotLocked: vector<u8> = b"Object not locked";
-#[error]
-const ENoExecutionTime: vector<u8> = b"No execution time provided";
-#[error]
-const EExecutionTimesNotAscending: vector<u8> = b"Execution times must be in ascending order";
-#[error]
-const EActionsNotEmpty: vector<u8> = b"Actions are not empty";
-#[error]
-const EKeyAlreadyExists: vector<u8> = b"Key already exists";
+const EIntentNotFound: u64 = 0;
+const EObjectAlreadyLocked: u64 = 1;
+const EObjectNotLocked: u64 = 2;
+const ENoExecutionTime: u64 = 3;
+const EExecutionTimesNotAscending: u64 = 4;
+const EActionsNotEmpty: u64 = 5;
+const EKeyAlreadyExists: u64 = 6;
 
 // === Structs ===
 
-/// Parent struct protecting the proposals
+/// Parent struct protecting the intents
 public struct Intents<Outcome> has store {
     inner: vector<Intent<Outcome>>,
     // ids of the objects that are being requested in intents, to avoid state changes
     locked: VecSet<ID>,
 }
 
-/// Child struct, proposal owning a sequence of actions requested to be executed
+/// Child struct, intent owning a sequence of actions requested to be executed
 /// Outcome is a custom struct depending on the config
 public struct Intent<Outcome> has store {
-    // module that issued the proposal and must destroy it
+    // module that issued the intent and must destroy it
     issuer: Issuer,
-    // name of the proposal, serves as a key, should be unique
+    // name of the intent, serves as a key, should be unique
     key: String,
-    // what this proposal aims to do, for informational purpose
+    // what this intent aims to do, for informational purpose
     description: String,
-    // proposer can add a timestamp_ms before which the proposal can't be executed
+    // address of the user that created the intent
+    creator: address,
+    // proposer can add a timestamp_ms before which the intent can't be executed
     // can be used to schedule actions via a backend
     // recurring intents can be executed at these times
     execution_times: vector<u64>,
-    // the proposal can be deleted from this timestamp
+    // the intent can be deleted from this timestamp
     expiration_time: u64,
     // role for the intent 
     role: String,
@@ -120,6 +115,10 @@ public fun description<Outcome>(intent: &Intent<Outcome>): String {
     intent.description
 }
 
+public fun creator<Outcome>(intent: &Intent<Outcome>): address {
+    intent.creator
+}
+
 public fun execution_times<Outcome>(intent: &Intent<Outcome>): vector<u64> {
     intent.execution_times
 }
@@ -140,7 +139,7 @@ public fun outcome<Outcome>(intent: &Intent<Outcome>): &Outcome {
     &intent.outcome
 }
 
-/// safe because &mut Proposal is only accessible in core deps
+/// safe because &mut intent is only accessible in core deps
 /// only used in AccountMultisig 
 public fun outcome_mut<Outcome>(intent: &mut Intent<Outcome>): &mut Outcome {
     &mut intent.outcome
@@ -166,7 +165,7 @@ public fun expired_actions(expired: &Expired): &Bag {
     &expired.actions
 }
 
-// === Proposal functions ===
+// === intent functions ===
 
 public fun remove_action<Action: store>(
     expired: &mut Expired, 
@@ -227,6 +226,7 @@ public(package) fun new_intent<Outcome>(
         issuer,
         key,
         description,
+        creator: ctx.sender(),
         execution_times,
         expiration_time,
         role,
@@ -235,7 +235,7 @@ public(package) fun new_intent<Outcome>(
     }
 }
 
-/// Inserts an action to the proposal bag
+/// Inserts an action to the intent bag
 public(package) fun add_action<Outcome, A: store>(
     intent: &mut Intent<Outcome>, 
     action: A, 
@@ -268,7 +268,7 @@ public(package) fun unlock<Outcome>(intents: &mut Intents<Outcome>, id: ID) {
     intents.locked.remove(&id);
 }
 
-/// Removes an proposal being executed if the execution_time is reached
+/// Removes an intent being executed if the execution_time is reached
 /// Outcome must be validated in AccountMultisig to be destroyed
 public(package) fun destroy<Outcome: drop>(
     intents: &mut Intents<Outcome>,
