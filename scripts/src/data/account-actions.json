@@ -4,11 +4,11 @@
     "id": "0x0038c5a7dc8a89df8449775982973fbd31fa0e3892e60b740dd8bcb3dc51c613"
   },
   {
-    "type": "AccountActions",
-    "id": "0xb42f63f94fc96385b0674a068c7a0b5e7b8dd647d795cb0ea9c8bc6b647a2238"
+    "type": "0x2::package::UpgradeCap",
+    "id": "0x0521a2e541b080f3f9a3eee8230675aab2c0edaab98884a81802c66a92b1b955"
   },
   {
-    "type": "0x2::package::UpgradeCap",
-    "id": "0xe02874ce5cea95e2c65a3cd487476799f36416b3572bf42e7000058cacd9e5f1"
+    "type": "AccountActions",
+    "id": "0x730a9f336be5b66cc221eb8d5030ee2c65838aad95c7c5a1082733bea9dc2f3d"
   }
 ]

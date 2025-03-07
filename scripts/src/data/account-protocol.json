@@ -4,19 +4,19 @@
     "id": "0x0038c5a7dc8a89df8449775982973fbd31fa0e3892e60b740dd8bcb3dc51c613"
   },
   {
-    "type": "0x2::package::UpgradeCap",
-    "id": "0x2b7620eb5f98bc8b8bc5f533c2ce711e303eb1e3e4d154f622af9c05165d10d8"
-  },
-  {
-    "type": "AccountProtocol",
-    "id": "0x4803761efb11498331d8e70c741602dbbe2ddc97f667174931ccc669fd4fb958"
+    "type": "0x378bf5c9174a33e4669c95d8e22231c7739b333d97b2a876e6734f755e72ee56::user::Registry",
+    "id": "0x24697c64cc1cff77177866c5a1c20aacb346b6f83c5ac9b738c2beaf6db534cb"
   },
   {
     "type": "0x2::package::Publisher",
-    "id": "0x95c8acb1d23a544aa6f22db6d30b273bda8961882de95591c88b84b7325658ae"
+    "id": "0x34cd342dfafba0534412f41e36568cb085d54945e966ef5ed98eed842fb355e9"
   },
   {
-    "type": "0x4803761efb11498331d8e70c741602dbbe2ddc97f667174931ccc669fd4fb958::user::Registry",
-    "id": "0xf042aa72f40998b9aa70e888439616da2607186bdb35c969562e361d40c9839e"
+    "type": "AccountProtocol",
+    "id": "0x378bf5c9174a33e4669c95d8e22231c7739b333d97b2a876e6734f755e72ee56"
+  },
+  {
+    "type": "0x2::package::UpgradeCap",
+    "id": "0x8c8ff396eaf351691e53d37f407f8b74a9d2aa3b2f8b8022ad4f978ba410427d"
   }
 ]
