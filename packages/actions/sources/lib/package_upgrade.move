@@ -36,17 +36,11 @@ const ENoLock: u64 = 5;
 // === Structs ===
 
 /// Dynamic Object Field key for the UpgradeCap.
-public struct UpgradeCapKey has copy, drop, store {
-    // name of the package
-    name: String,
-}
+public struct UpgradeCapKey(String) has copy, drop, store;
 /// Dynamic field key for the UpgradeRules.
-public struct UpgradeRulesKey has copy, drop, store {
-    // name of the package
-    name: String,
-}
+public struct UpgradeRulesKey(String) has copy, drop, store;
 /// Dynamic field key for the UpgradeIndex.
-public struct UpgradeIndexKey has copy, drop, store {}
+public struct UpgradeIndexKey() has copy, drop, store;
 
 /// Dynamic field wrapper defining an optional timelock.
 public struct UpgradeRules has store {
@@ -90,14 +84,14 @@ public fun lock_cap<Config, Outcome>(
     account.verify(auth);
     assert!(!has_cap(account, name), ELockAlreadyExists);
 
-    if (!account.has_managed_data(UpgradeIndexKey {}))
-        account.add_managed_data(UpgradeIndexKey {}, UpgradeIndex { packages_info: vec_map::empty() }, version::current());
+    if (!account.has_managed_data(UpgradeIndexKey()))
+        account.add_managed_data(UpgradeIndexKey(), UpgradeIndex { packages_info: vec_map::empty() }, version::current());
 
-    let upgrade_index_mut: &mut UpgradeIndex = account.borrow_managed_data_mut(UpgradeIndexKey {}, version::current());
+    let upgrade_index_mut: &mut UpgradeIndex = account.borrow_managed_data_mut(UpgradeIndexKey(), version::current());
     upgrade_index_mut.packages_info.insert(name, cap.package().to_address());
     
-    account.add_managed_asset(UpgradeCapKey { name }, cap, version::current());
-    account.add_managed_data(UpgradeRulesKey { name }, UpgradeRules { delay_ms }, version::current());
+    account.add_managed_asset(UpgradeCapKey(name), cap, version::current());
+    account.add_managed_data(UpgradeRulesKey(name), UpgradeRules { delay_ms }, version::current());
 }
 
 /// Returns true if the account has an UpgradeCap for a given package name.
@@ -105,7 +99,7 @@ public fun has_cap<Config, Outcome>(
     account: &Account<Config, Outcome>, 
     name: String
 ): bool {
-    account.has_managed_asset(UpgradeCapKey { name })
+    account.has_managed_asset(UpgradeCapKey(name))
 }
 
 /// Returns the address of the package for a given package name.
@@ -113,7 +107,7 @@ public fun get_cap_package<Config, Outcome>(
     account: &Account<Config, Outcome>, 
     name: String
 ): address {
-    let cap: &UpgradeCap = account.borrow_managed_asset(UpgradeCapKey { name }, version::current());
+    let cap: &UpgradeCap = account.borrow_managed_asset(UpgradeCapKey(name), version::current());
     cap.package().to_address()
 } 
 
@@ -122,7 +116,7 @@ public fun get_cap_version<Config, Outcome>(
     account: &Account<Config, Outcome>, 
     name: String
 ): u64 {
-    let cap: &UpgradeCap = account.borrow_managed_asset(UpgradeCapKey { name }, version::current());
+    let cap: &UpgradeCap = account.borrow_managed_asset(UpgradeCapKey(name), version::current());
     cap.version()
 } 
 
@@ -131,7 +125,7 @@ public fun get_cap_policy<Config, Outcome>(
     account: &Account<Config, Outcome>, 
     name: String
 ): u8 {
-    let cap: &UpgradeCap = account.borrow_managed_asset(UpgradeCapKey { name }, version::current());
+    let cap: &UpgradeCap = account.borrow_managed_asset(UpgradeCapKey(name), version::current());
     cap.policy()
 } 
 
@@ -140,7 +134,7 @@ public fun get_time_delay<Config, Outcome>(
     account: &Account<Config, Outcome>, 
     name: String
 ): u64 {
-    let rules: &UpgradeRules = account.borrow_managed_data(UpgradeRulesKey { name }, version::current());
+    let rules: &UpgradeRules = account.borrow_managed_data(UpgradeRulesKey(name), version::current());
     rules.delay_ms
 }
 
@@ -148,7 +142,7 @@ public fun get_time_delay<Config, Outcome>(
 public fun get_packages_info<Config, Outcome>(
     account: &Account<Config, Outcome>
 ): &VecMap<String, address> {
-    let index: &UpgradeIndex = account.borrow_managed_data(UpgradeIndexKey {}, version::current());
+    let index: &UpgradeIndex = account.borrow_managed_data(UpgradeIndexKey(), version::current());
     &index.packages_info
 }
 
@@ -157,8 +151,8 @@ public fun is_package_managed<Config, Outcome>(
     account: &Account<Config, Outcome>,
     package_addr: address
 ): bool {
-    if (!account.has_managed_data(UpgradeIndexKey {})) return false;
-    let index: &UpgradeIndex = account.borrow_managed_data(UpgradeIndexKey {}, version::current());
+    if (!account.has_managed_data(UpgradeIndexKey())) return false;
+    let index: &UpgradeIndex = account.borrow_managed_data(UpgradeIndexKey(), version::current());
     
     let mut i = 0;
     while (i < index.packages_info.size()) {
@@ -175,7 +169,7 @@ public fun get_package_addr<Config, Outcome>(
     account: &Account<Config, Outcome>,
     package_name: String
 ): address {
-    let index: &UpgradeIndex = account.borrow_managed_data(UpgradeIndexKey {}, version::current());
+    let index: &UpgradeIndex = account.borrow_managed_data(UpgradeIndexKey(), version::current());
     *index.packages_info.get(&package_name)
 }
 
@@ -184,7 +178,7 @@ public fun get_package_name<Config, Outcome>(
     account: &Account<Config, Outcome>,
     package_addr: address
 ): String {
-    let index: &UpgradeIndex = account.borrow_managed_data(UpgradeIndexKey {}, version::current());
+    let index: &UpgradeIndex = account.borrow_managed_data(UpgradeIndexKey(), version::current());
     let (mut i, mut package_name) = (0, b"".to_string());
     loop {
         let (name, addr) = index.packages_info.get_entry_by_idx(i);
@@ -228,7 +222,7 @@ public fun do_upgrade<Config, Outcome, IW: copy + drop>(
     let (name, digest, upgrade_time) = (action.name, action.digest, action.upgrade_time);
     assert!(upgrade_time <= clock.timestamp_ms(), EUpgradeTooEarly);
 
-    let cap: &mut UpgradeCap = account.borrow_managed_asset_mut(UpgradeCapKey { name }, version_witness);
+    let cap: &mut UpgradeCap = account.borrow_managed_asset_mut(UpgradeCapKey(name), version_witness);
     let policy = cap.policy();
 
     cap.authorize_upgrade(policy, digest)
@@ -250,12 +244,12 @@ public fun confirm_upgrade<Config, Outcome, IW: copy + drop>(
 
     let key = executable.issuer().intent_key();
     let name = account.intents().get(key).actions().borrow<_, UpgradeAction>(executable.action_idx() - 1).name;
-    let cap_mut: &mut UpgradeCap = account.borrow_managed_asset_mut(UpgradeCapKey { name }, version_witness);
+    let cap_mut: &mut UpgradeCap = account.borrow_managed_asset_mut(UpgradeCapKey(name), version_witness);
     cap_mut.commit_upgrade(receipt);
     let new_package_addr = cap_mut.package().to_address();
 
     // update the index with the new package address
-    let index_mut: &mut UpgradeIndex = account.borrow_managed_data_mut(UpgradeIndexKey {}, version_witness);
+    let index_mut: &mut UpgradeIndex = account.borrow_managed_data_mut(UpgradeIndexKey(), version_witness);
     *index_mut.packages_info.get_mut(&name) = new_package_addr;
 }
 
@@ -297,13 +291,13 @@ public fun do_restrict<Config, Outcome, IW: copy + drop>(
     let (name, policy) = (action.name, action.policy);
 
     if (policy == package::additive_policy()) {
-        let cap_mut: &mut UpgradeCap = account.borrow_managed_asset_mut(UpgradeCapKey { name }, version_witness);
+        let cap_mut: &mut UpgradeCap = account.borrow_managed_asset_mut(UpgradeCapKey(name), version_witness);
         cap_mut.only_additive_upgrades();
     } else if (policy == package::dep_only_policy()) {
-        let cap_mut: &mut UpgradeCap = account.borrow_managed_asset_mut(UpgradeCapKey { name }, version_witness);
+        let cap_mut: &mut UpgradeCap = account.borrow_managed_asset_mut(UpgradeCapKey(name), version_witness);
         cap_mut.only_dep_upgrades();
     } else {
-        let cap: UpgradeCap = account.remove_managed_asset(UpgradeCapKey { name }, version_witness);
+        let cap: UpgradeCap = account.remove_managed_asset(UpgradeCapKey(name), version_witness);
         package::make_immutable(cap);
     };
 }
@@ -321,5 +315,5 @@ public(package) fun borrow_cap<Config, Outcome>(
     package_addr: address
 ): &UpgradeCap {
     let name = get_package_name(account, package_addr);
-    account.borrow_managed_asset(UpgradeCapKey { name }, version::current())
+    account.borrow_managed_asset(UpgradeCapKey(name), version::current())
 }

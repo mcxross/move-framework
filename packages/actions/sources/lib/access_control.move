@@ -35,7 +35,7 @@ const EWrongAccount: u64 = 2;
 // === Structs ===    
 
 /// Dynamic Object Field key for the Cap.
-public struct CapKey<phantom Cap> has copy, drop, store {}
+public struct CapKey<phantom Cap>() has copy, drop, store;
 
 /// Action giving access to the Cap.
 public struct BorrowAction<phantom Cap> has store {}
@@ -55,14 +55,14 @@ public fun lock_cap<Config, Outcome, Cap: key + store>(
 ) {
     account.verify(auth);
     assert!(!has_lock<_, _, Cap>(account), EAlreadyLocked);
-    account.add_managed_asset(CapKey<Cap> {}, cap, version::current());
+    account.add_managed_asset(CapKey<Cap>(), cap, version::current());
 }
 
 /// Checks if there is a Cap locked for a given type.
 public fun has_lock<Config, Outcome, Cap>(
     account: &Account<Config, Outcome>
 ): bool {
-    account.has_managed_asset(CapKey<Cap> {})
+    account.has_managed_asset(CapKey<Cap>())
 }
 
 // Intent functions
@@ -87,7 +87,7 @@ public fun do_borrow<Config, Outcome, Cap: key + store, IW: copy + drop>(
     assert!(has_lock<_, _, Cap>(account), ENoLock);
     // check to be sure this cap type has been approved
     let _action: &BorrowAction<Cap> = account.process_action(executable, version_witness, intent_witness);
-    let cap = account.remove_managed_asset(CapKey<Cap> {}, version_witness);
+    let cap = account.remove_managed_asset(CapKey<Cap>(), version_witness);
     
     (Borrowed<Cap> { account_addr: account.addr() }, cap)
 }
@@ -102,7 +102,7 @@ public fun return_borrowed<Config, Outcome, Cap: key + store>(
     let Borrowed<Cap> { account_addr } = borrow;
     assert!(account_addr == account.addr(), EWrongAccount);
 
-    account.add_managed_asset(CapKey<Cap> {}, cap, version_witness);
+    account.add_managed_asset(CapKey<Cap>(), cap, version_witness);
 }
 
 /// Deletes a BorrowAction from an expired intent.

@@ -31,7 +31,7 @@ const EVaultNotEmpty: u64 = 2;
 // === Structs ===
 
 /// Dynamic Field key for the Vault.
-public struct VaultKey has copy, drop, store { name: String }
+public struct VaultKey(String) has copy, drop, store;
 /// Dynamic field holding a budget with different coin types, key is name
 public struct Vault has store {
     // heterogeneous array of Balances, TypeName -> Balance<CoinType>
@@ -65,7 +65,7 @@ public fun open<Config, Outcome>(
     account.verify(auth);
     assert!(!has_vault(account, name), EVaultAlreadyExists);
 
-    account.add_managed_data(VaultKey { name }, Vault { bag: bag::new(ctx) }, version::current());
+    account.add_managed_data(VaultKey(name), Vault { bag: bag::new(ctx) }, version::current());
 }
 
 /// Deposits coins owned by a an authorized address into a vault.
@@ -79,7 +79,7 @@ public fun deposit<Config, Outcome, CoinType: drop>(
     assert!(has_vault(account, name), EVaultDoesntExist);
 
     let vault: &mut Vault = 
-        account.borrow_managed_data_mut(VaultKey { name }, version::current());
+        account.borrow_managed_data_mut(VaultKey(name), version::current());
 
     if (vault.coin_type_exists<CoinType>()) {
         let balance_mut = vault.bag.borrow_mut<_, Balance<_>>(type_name::get<CoinType>());
@@ -98,7 +98,7 @@ public fun close<Config, Outcome>(
     account.verify(auth);
 
     let Vault { bag } = 
-        account.remove_managed_data(VaultKey { name }, version::current());
+        account.remove_managed_data(VaultKey(name), version::current());
     assert!(bag.is_empty(), EVaultNotEmpty);
     bag.destroy_empty();
 }
@@ -108,7 +108,7 @@ public fun has_vault<Config, Outcome>(
     account: &Account<Config, Outcome>, 
     name: String
 ): bool {
-    account.has_managed_data(VaultKey { name })
+    account.has_managed_data(VaultKey(name))
 }
 
 /// Returns a reference to the vault.
@@ -117,7 +117,7 @@ public fun borrow_vault<Config, Outcome>(
     name: String
 ): &Vault {
     assert!(has_vault(account, name), EVaultDoesntExist);
-    account.borrow_managed_data(VaultKey { name }, version::current())
+    account.borrow_managed_data(VaultKey(name), version::current())
 }
 
 /// Returns the number of coin types in the vault.
@@ -161,7 +161,7 @@ public fun do_deposit<Config, Outcome, CoinType: drop, IW: copy + drop>(
     let name = action.name;
     assert!(action.amount == coin.value());
     
-    let vault: &mut Vault = account.borrow_managed_data_mut(VaultKey { name }, version_witness);
+    let vault: &mut Vault = account.borrow_managed_data_mut(VaultKey(name), version_witness);
     if (!vault.coin_type_exists<CoinType>()) {
         vault.bag.add(type_name::get<CoinType>(), coin.into_balance());
     } else {
@@ -198,7 +198,7 @@ public fun do_spend<Config, Outcome, CoinType: drop, IW: copy + drop>(
     let action: &SpendAction<CoinType> = account.process_action(executable, version_witness, intent_witness);
     let (name, amount) = (action.name, action.amount);
     
-    let vault: &mut Vault = account.borrow_managed_data_mut(VaultKey { name }, version_witness);
+    let vault: &mut Vault = account.borrow_managed_data_mut(VaultKey(name), version_witness);
     let balance_mut = vault.bag.borrow_mut<_, Balance<_>>(type_name::get<CoinType>());
     let coin = coin::take(balance_mut, amount, ctx);
 
