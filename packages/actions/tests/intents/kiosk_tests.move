@@ -41,7 +41,7 @@ public struct Outcome has copy, drop, store {}
 
 // === Helpers ===
 
-fun start(): (Scenario, Extensions, Account<Config, Outcome>, Clock, TransferPolicy<Nft>) {
+fun start(): (Scenario, Extensions, Account<Config>, Clock, TransferPolicy<Nft>) {
     let mut scenario = ts::begin(OWNER);
     // publish package
     extensions::init_for_testing(scenario.ctx());
@@ -67,7 +67,7 @@ fun start(): (Scenario, Extensions, Account<Config, Outcome>, Clock, TransferPol
     (scenario, extensions, account, clock, policy)
 }
 
-fun end(scenario: Scenario, extensions: Extensions, account: Account<Config, Outcome>, clock: Clock, policy: TransferPolicy<Nft>) {
+fun end(scenario: Scenario, extensions: Extensions, account: Account<Config>, clock: Clock, policy: TransferPolicy<Nft>) {
     destroy(extensions);
     destroy(account);
     destroy(policy);
@@ -88,7 +88,7 @@ fun init_caller_kiosk_with_nfts(policy: &TransferPolicy<Nft>, amount: u64, scena
     (kiosk, kiosk_cap, ids)
 }
 
-fun init_account_kiosk_with_nfts(account: &mut Account<Config, Outcome>, policy: &mut TransferPolicy<Nft>, amount: u64, scenario: &mut Scenario): (Kiosk, vector<ID>) {
+fun init_account_kiosk_with_nfts(account: &mut Account<Config>, policy: &mut TransferPolicy<Nft>, amount: u64, scenario: &mut Scenario): (Kiosk, vector<ID>) {
     let auth = account.new_auth(version::current(), Witness());
     acc_kiosk::open(auth, account, b"Degen".to_string(), scenario.ctx());
     scenario.next_tx(OWNER);
@@ -143,7 +143,7 @@ fun test_request_execute_take() {
         scenario.ctx()
     );
 
-    let (mut executable, _) = account::execute_intent(&mut account, b"dummy".to_string(), &clock, version::current(), Witness());
+    let (mut executable, _) = account::execute_intent<_, Outcome, _>(&mut account, b"dummy".to_string(), &clock, version::current(), Witness());
     let request = acc_kiosk_intents::execute_take_nfts<Config, Outcome, Nft>(
         &mut executable, 
         &mut account, 
@@ -163,10 +163,10 @@ fun test_request_execute_take() {
         &mut policy,
         scenario.ctx()
     );
-    policy.confirm_request(request);
-    acc_kiosk_intents::complete_take_nfts(executable, &account);
+    policy.confirm_request(request); 
+    acc_kiosk_intents::complete_take_nfts<_, Outcome>(executable, &account);
 
-    let mut expired = account.destroy_empty_intent(b"dummy".to_string());
+    let mut expired = account.destroy_empty_intent<_, Outcome>(b"dummy".to_string());
     acc_kiosk::delete_take(&mut expired);
     acc_kiosk::delete_take(&mut expired);
     expired.destroy_empty();
@@ -200,15 +200,15 @@ fun test_request_execute_list() {
         b"Degen".to_string(),
         ids,
         vector[100, 200],
-        scenario.ctx()
+        scenario.ctx() 
     );
 
-    let (mut executable, _) = account::execute_intent(&mut account, b"dummy".to_string(), &clock, version::current(), Witness());
+    let (mut executable, _) = account::execute_intent<_, Outcome, _>(&mut account, b"dummy".to_string(), &clock, version::current(), Witness());
     acc_kiosk_intents::execute_list_nfts<Config, Outcome, Nft>(&mut executable, &mut account, &mut acc_kiosk);
     acc_kiosk_intents::execute_list_nfts<Config, Outcome, Nft>(&mut executable, &mut account, &mut acc_kiosk);
-    acc_kiosk_intents::complete_list_nfts(executable, &account);
+    acc_kiosk_intents::complete_list_nfts<_, Outcome>(executable, &account);
 
-    let mut expired = account.destroy_empty_intent(b"dummy".to_string());
+    let mut expired = account.destroy_empty_intent<_, Outcome>(b"dummy".to_string());
     acc_kiosk::delete_list(&mut expired);
     acc_kiosk::delete_list(&mut expired);
     expired.destroy_empty();

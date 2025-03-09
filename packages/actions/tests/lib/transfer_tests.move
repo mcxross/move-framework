@@ -41,7 +41,7 @@ public struct Outcome has copy, drop, store {}
 
 // === Helpers ===
 
-fun start(): (Scenario, Extensions, Account<Config, Outcome>, Clock) {
+fun start(): (Scenario, Extensions, Account<Config>, Clock) {
     let mut scenario = ts::begin(OWNER);
     // publish package
     extensions::init_for_testing(scenario.ctx());
@@ -61,7 +61,7 @@ fun start(): (Scenario, Extensions, Account<Config, Outcome>, Clock) {
     (scenario, extensions, account, clock)
 }
 
-fun end(scenario: Scenario, extensions: Extensions, account: Account<Config, Outcome>, clock: Clock) {
+fun end(scenario: Scenario, extensions: Extensions, account: Account<Config>, clock: Clock) {
     destroy(extensions);
     destroy(account);
     destroy(clock);
@@ -70,7 +70,7 @@ fun end(scenario: Scenario, extensions: Extensions, account: Account<Config, Out
 
 fun create_dummy_intent(
     scenario: &mut Scenario,
-    account: &mut Account<Config, Outcome>, 
+    account: &mut Account<Config>, 
 ): Intent<Outcome> {
     account.create_intent(
         b"dummy".to_string(), 
@@ -98,15 +98,15 @@ fun test_transfer_flow() {
     acc_transfer::new_transfer(&mut intent, &account, OWNER, version::current(), DummyIntent());
     account.add_intent(intent, version::current(), DummyIntent());
 
-    let (mut executable, _) = account.execute_intent(key, &clock, version::current(), DummyIntent());
-    acc_transfer::do_transfer(
+    let (mut executable, _) = account.execute_intent<_, Outcome, _>(key, &clock, version::current(), DummyIntent());
+    acc_transfer::do_transfer<_, Outcome, _, _>(
         &mut executable, 
         &mut account, 
         obj,
         version::current(), 
         DummyIntent(),
     );
-    account.confirm_execution(executable, version::current(), DummyIntent());
+    account.confirm_execution<_, Outcome, _>(executable, version::current(), DummyIntent());
 
     scenario.next_tx(OWNER);
     assert!(scenario.has_most_recent_for_sender<Obj>());
@@ -128,9 +128,9 @@ fun test_error_do_transfer_from_wrong_account() {
     acc_transfer::new_transfer(&mut intent, &account2, OWNER, version::current(), DummyIntent());
     account2.add_intent(intent, version::current(), DummyIntent());
 
-    let (mut executable, _) = account2.execute_intent(key, &clock, version::current(), DummyIntent());
+    let (mut executable, _) = account2.execute_intent<_, Outcome, _>(key, &clock, version::current(), DummyIntent());
     // try to disable from the account that didn't approve the intent
-    acc_transfer::do_transfer(
+    acc_transfer::do_transfer<_, Outcome, _, _>(
         &mut executable, 
         &mut account, 
         coin::mint_for_testing<SUI>(6, scenario.ctx()),
@@ -152,9 +152,9 @@ fun test_error_do_transfer_from_wrong_constructor_witness() {
     acc_transfer::new_transfer(&mut intent, &account, OWNER, version::current(), DummyIntent());
     account.add_intent(intent, version::current(), DummyIntent());
 
-    let (mut executable, _) = account.execute_intent(key, &clock, version::current(), DummyIntent());
+    let (mut executable, _) = account.execute_intent<_, Outcome, _>(key, &clock, version::current(), DummyIntent());
     // try to disable with the wrong witness that didn't approve the intent
-    acc_transfer::do_transfer(
+    acc_transfer::do_transfer<_, Outcome, _, _>(
         &mut executable, 
         &mut account, 
         coin::mint_for_testing<SUI>(6, scenario.ctx()),
@@ -175,9 +175,9 @@ fun test_error_do_transfer_from_not_dep() {
     acc_transfer::new_transfer(&mut intent, &account, OWNER, version::current(), DummyIntent());
     account.add_intent(intent, version::current(), DummyIntent());
 
-    let (mut executable, _) = account.execute_intent(key, &clock, version::current(), DummyIntent());
+    let (mut executable, _) = account.execute_intent<_, Outcome, _>(key, &clock, version::current(), DummyIntent());
     // try to disable with the wrong version TypeName that didn't approve the intent
-    acc_transfer::do_transfer(
+    acc_transfer::do_transfer<_, Outcome, _, _>(
         &mut executable, 
         &mut account, 
         coin::mint_for_testing<SUI>(6, scenario.ctx()),

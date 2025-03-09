@@ -35,10 +35,10 @@ public struct WithdrawAndVestIntent() has copy, drop;
 // === Public functions ===
 
 /// Creates a WithdrawAndTransferToVaultIntent and adds it to an Account.
-public fun request_withdraw_and_transfer_to_vault<Config, Outcome, CoinType: drop>(
+public fun request_withdraw_and_transfer_to_vault<Config, Outcome: store, CoinType: drop>(
     auth: Auth,
     outcome: Outcome,
-    account: &mut Account<Config, Outcome>, 
+    account: &mut Account<Config>, 
     key: String,
     description: String,
     execution_time: u64,
@@ -73,22 +73,22 @@ public fun request_withdraw_and_transfer_to_vault<Config, Outcome, CoinType: dro
 }
 
 /// Executes a WithdrawAndTransferToVaultIntent, deposits a coin owned by the account into a vault.
-public fun execute_withdraw_and_transfer_to_vault<Config, Outcome, CoinType: drop>(
+public fun execute_withdraw_and_transfer_to_vault<Config, Outcome: store, CoinType: drop>(
     mut executable: Executable, 
-    account: &mut Account<Config, Outcome>, 
+    account: &mut Account<Config>, 
     receiving: Receiving<Coin<CoinType>>,
 ) {
-    let object = owned::do_withdraw(&mut executable, account, receiving, version::current(), WithdrawAndTransferToVaultIntent());
-    vault::do_deposit(&mut executable, account, object, version::current(), WithdrawAndTransferToVaultIntent());
+    let object = owned::do_withdraw<_, Outcome, _, _>(&mut executable, account, receiving, version::current(), WithdrawAndTransferToVaultIntent());
+    vault::do_deposit<_, Outcome, _, _>(&mut executable, account, object, version::current(), WithdrawAndTransferToVaultIntent());
     
-    account.confirm_execution(executable, version::current(), WithdrawAndTransferToVaultIntent());
+    account.confirm_execution<_, Outcome, _>(executable, version::current(), WithdrawAndTransferToVaultIntent());
 }
 
 /// Creates a WithdrawAndTransferIntent and adds it to an Account.
-public fun request_withdraw_and_transfer<Config, Outcome>(
+public fun request_withdraw_and_transfer<Config, Outcome: store>(
     auth: Auth,
     outcome: Outcome,
-    account: &mut Account<Config, Outcome>, 
+    account: &mut Account<Config>, 
     key: String,
     description: String,
     execution_time: u64,
@@ -121,28 +121,28 @@ public fun request_withdraw_and_transfer<Config, Outcome>(
 }
 
 /// Executes a WithdrawAndTransferIntent, transfers an object owned by the account. Can be looped over.
-public fun execute_withdraw_and_transfer<Config, Outcome, T: key + store>(
+public fun execute_withdraw_and_transfer<Config, Outcome: store, T: key + store>(
     executable: &mut Executable, 
-    account: &mut Account<Config, Outcome>, 
+    account: &mut Account<Config>, 
     receiving: Receiving<T>,
 ) {
-    let object = owned::do_withdraw(executable, account, receiving, version::current(), WithdrawAndTransferIntent());
-    acc_transfer::do_transfer(executable, account, object, version::current(), WithdrawAndTransferIntent());
+    let object = owned::do_withdraw<_, Outcome, _, _>(executable, account, receiving, version::current(), WithdrawAndTransferIntent());
+    acc_transfer::do_transfer<_, Outcome, _, _>(executable, account, object, version::current(), WithdrawAndTransferIntent());
 }
 
 /// Completes a WithdrawAndTransferIntent, destroys the executable after looping over the transfers.
-public fun complete_withdraw_and_transfer<Config, Outcome>(
+public fun complete_withdraw_and_transfer<Config, Outcome: store>(
     executable: Executable,
-    account: &Account<Config, Outcome>,
+    account: &Account<Config>,
 ) {
-    account.confirm_execution(executable, version::current(), WithdrawAndTransferIntent());
+    account.confirm_execution<_, Outcome, _>(executable, version::current(), WithdrawAndTransferIntent());
 }
 
 /// Creates a WithdrawAndVestIntent and adds it to an Account.
-public fun request_withdraw_and_vest<Config, Outcome>(
+public fun request_withdraw_and_vest<Config, Outcome: store>(
     auth: Auth,
     outcome: Outcome,
-    account: &mut Account<Config, Outcome>, 
+    account: &mut Account<Config>, 
     key: String,
     description: String,
     execution_time: u64,
@@ -176,13 +176,13 @@ public fun request_withdraw_and_vest<Config, Outcome>(
 }
 
 /// Executes a WithdrawAndVestIntent, withdraws a coin and creates a vesting.
-public fun execute_withdraw_and_vest<Config, Outcome, C: drop>(
+public fun execute_withdraw_and_vest<Config, Outcome: store, C: drop>(
     mut executable: Executable, 
-    account: &mut Account<Config, Outcome>, 
+    account: &mut Account<Config>, 
     receiving: Receiving<Coin<C>>,
     ctx: &mut TxContext
 ) {
-    let coin: Coin<C> = owned::do_withdraw(&mut executable, account, receiving, version::current(), WithdrawAndVestIntent());
-    vesting::do_vest(&mut executable, account, coin, version::current(), WithdrawAndVestIntent(), ctx);
-    account.confirm_execution(executable, version::current(), WithdrawAndVestIntent());
+    let coin: Coin<C> = owned::do_withdraw<_, Outcome, _, _>(&mut executable, account, receiving, version::current(), WithdrawAndVestIntent());
+    vesting::do_vest<_, Outcome, _, _>(&mut executable, account, coin, version::current(), WithdrawAndVestIntent(), ctx);
+    account.confirm_execution<_, Outcome, _>(executable, version::current(), WithdrawAndVestIntent());
 }

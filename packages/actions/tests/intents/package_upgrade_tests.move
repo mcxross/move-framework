@@ -30,7 +30,7 @@ public struct Outcome has copy, drop, store {}
 
 // === Helpers ===
 
-fun start(): (Scenario, Extensions, Account<Config, Outcome>, Clock, UpgradeCap) {
+fun start(): (Scenario, Extensions, Account<Config>, Clock, UpgradeCap) {
     let mut scenario = ts::begin(OWNER);
     // publish package
     extensions::init_for_testing(scenario.ctx());
@@ -50,7 +50,7 @@ fun start(): (Scenario, Extensions, Account<Config, Outcome>, Clock, UpgradeCap)
     (scenario, extensions, account, clock, upgrade_cap)
 }
 
-fun end(scenario: Scenario, extensions: Extensions, account: Account<Config, Outcome>, clock: Clock) {
+fun end(scenario: Scenario, extensions: Extensions, account: Account<Config>, clock: Clock) {
     destroy(extensions);
     destroy(account);
     destroy(clock);
@@ -84,13 +84,13 @@ fun test_request_execute_upgrade() {
     );
 
     clock.increment_for_testing(1000);
-    let (mut executable, _) = account::execute_intent(&mut account, key, &clock, version::current(), Witness());
+    let (mut executable, _) = account::execute_intent<_, Outcome, _>(&mut account, key, &clock, version::current(), Witness());
 
-    let ticket = package_upgrade_intents::execute_upgrade_package(&mut executable, &mut account, &clock);
+    let ticket = package_upgrade_intents::execute_upgrade_package<_, Outcome>(&mut executable, &mut account, &clock);
     let receipt = ticket.test_upgrade();
-    package_upgrade_intents::complete_upgrade_package(executable, &mut account, receipt);
+    package_upgrade_intents::complete_upgrade_package<_, Outcome>(executable, &mut account, receipt);
 
-    let mut expired = account.destroy_empty_intent(key);
+    let mut expired = account.destroy_empty_intent<_, Outcome>(key);
     package_upgrade::delete_upgrade(&mut expired);
     expired.destroy_empty();
 
@@ -121,10 +121,10 @@ fun test_request_execute_restrict_all() {
     );
 
     clock.increment_for_testing(1000);
-    let (executable, _) = account::execute_intent(&mut account, key, &clock, version::current(), Witness());
-    package_upgrade_intents::execute_restrict_policy(executable, &mut account);
+    let (executable, _) = account::execute_intent<_, Outcome, _>(&mut account, key, &clock, version::current(), Witness());
+    package_upgrade_intents::execute_restrict_policy<_, Outcome>(executable, &mut account);
 
-    let mut expired = account.destroy_empty_intent(key);
+    let mut expired = account.destroy_empty_intent<_, Outcome>(key);
     package_upgrade::delete_restrict(&mut expired);
     expired.destroy_empty();
 
@@ -144,10 +144,10 @@ fun test_request_execute_restrict_all() {
     );
 
     clock.increment_for_testing(1000);
-    let (executable, _) = account::execute_intent(&mut account, key, &clock, version::current(), Witness());
-    package_upgrade_intents::execute_restrict_policy(executable, &mut account);
+    let (executable, _) = account::execute_intent<_, Outcome, _>(&mut account, key, &clock, version::current(), Witness());
+    package_upgrade_intents::execute_restrict_policy<_, Outcome>(executable, &mut account);
 
-    let mut expired = account.destroy_empty_intent(key);
+    let mut expired = account.destroy_empty_intent<_, Outcome>(key);
     package_upgrade::delete_restrict(&mut expired);
     expired.destroy_empty();
 
@@ -167,10 +167,10 @@ fun test_request_execute_restrict_all() {
     );
 
     clock.increment_for_testing(1000);
-    let (executable, _) = account::execute_intent(&mut account, key, &clock, version::current(), Witness());
-    package_upgrade_intents::execute_restrict_policy(executable, &mut account);
+    let (executable, _) = account::execute_intent<_, Outcome, _>(&mut account, key, &clock, version::current(), Witness());
+    package_upgrade_intents::execute_restrict_policy<_, Outcome>(executable, &mut account);
 
-    let mut expired = account.destroy_empty_intent(key);
+    let mut expired = account.destroy_empty_intent<_, Outcome>(key);
     package_upgrade::delete_restrict(&mut expired);
     expired.destroy_empty();
     // lock destroyed with upgrade cap

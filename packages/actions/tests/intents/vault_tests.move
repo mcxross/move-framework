@@ -35,7 +35,7 @@ public struct VAULT_TESTS has drop {}
 
 // === Helpers ===
 
-fun start(): (Scenario, Extensions, Account<Config, Outcome>, Clock) {
+fun start(): (Scenario, Extensions, Account<Config>, Clock) {
     let mut scenario = ts::begin(OWNER);
     // publish package
     extensions::init_for_testing(scenario.ctx());
@@ -54,7 +54,7 @@ fun start(): (Scenario, Extensions, Account<Config, Outcome>, Clock) {
     (scenario, extensions, account, clock)
 }
 
-fun end(scenario: Scenario, extensions: Extensions, account: Account<Config, Outcome>, clock: Clock) {
+fun end(scenario: Scenario, extensions: Extensions, account: Account<Config>, clock: Clock) {
     destroy(extensions);
     destroy(account);
     destroy(clock);
@@ -71,7 +71,7 @@ fun test_request_execute_transfer() {
     let key = b"dummy".to_string();
 
     let auth = account.new_auth(version::current(), Witness());
-    vault::deposit<Config, Outcome, SUI>(
+    vault::deposit<Config, SUI>(
         auth, 
         &mut account,  
         b"Degen".to_string(), 
@@ -80,7 +80,7 @@ fun test_request_execute_transfer() {
 
     let auth = account.new_auth(version::current(), Witness());
     let outcome = Outcome {};
-    vault_intents::request_spend_and_transfer<Config, Outcome, SUI>(
+    vault_intents::request_spend_and_transfer<_, Outcome, SUI>(
         auth, 
         outcome, 
         &mut account, 
@@ -94,13 +94,13 @@ fun test_request_execute_transfer() {
         scenario.ctx()
     );
 
-    let (mut executable, _) = account::execute_intent(&mut account, key, &clock, version::current(), Witness());
+    let (mut executable, _) = account::execute_intent<_, Outcome, _>(&mut account, key, &clock, version::current(), Witness());
     // loop over execute_spend_and_transfer to execute each action
-    vault_intents::execute_spend_and_transfer<Config, Outcome, SUI>(&mut executable, &mut account, scenario.ctx());
-    vault_intents::execute_spend_and_transfer<Config, Outcome, SUI>(&mut executable, &mut account, scenario.ctx());
-    vault_intents::complete_spend_and_transfer(executable, &account);
+    vault_intents::execute_spend_and_transfer<_, Outcome, SUI>(&mut executable, &mut account, scenario.ctx());
+    vault_intents::execute_spend_and_transfer<_, Outcome, SUI>(&mut executable, &mut account, scenario.ctx());
+    vault_intents::complete_spend_and_transfer<_, Outcome>(executable, &account);
 
-    let mut expired = account.destroy_empty_intent(key);
+    let mut expired = account.destroy_empty_intent<_, Outcome>(key);
     vault::delete_spend<SUI>(&mut expired);
     acc_transfer::delete_transfer(&mut expired);
     vault::delete_spend<SUI>(&mut expired);
@@ -126,7 +126,7 @@ fun test_request_execute_vesting() {
     let key = b"dummy".to_string();
 
     let auth = account.new_auth(version::current(), Witness());
-    vault::deposit<Config, Outcome, SUI>(
+    vault::deposit<Config, SUI>(
         auth, 
         &mut account, 
         b"Degen".to_string(), 
@@ -151,10 +151,10 @@ fun test_request_execute_vesting() {
         scenario.ctx()
     );
 
-    let (executable, _) = account::execute_intent(&mut account, key, &clock, version::current(), Witness());
+    let (executable, _) = account::execute_intent<_, Outcome, _>(&mut account, key, &clock, version::current(), Witness());
     vault_intents::execute_spend_and_vest<Config, Outcome, SUI>(executable, &mut account, scenario.ctx());
 
-    let mut expired = account.destroy_empty_intent(key);
+    let mut expired = account.destroy_empty_intent<_, Outcome>(key);
     vault::delete_spend<SUI>(&mut expired);
     vesting::delete_vest(&mut expired);
     expired.destroy_empty();
@@ -179,7 +179,7 @@ fun test_error_request_transfer_not_same_length() {
     let key = b"dummy".to_string();
 
     let auth = account.new_auth(version::current(), Witness());
-    vault::deposit<Config, Outcome, SUI>(
+    vault::deposit<Config, SUI>(
         auth, 
         &mut account, 
         b"Degen".to_string(), 
@@ -213,7 +213,7 @@ fun test_error_request_transfer_coin_type_doesnt_exist() {
     let key = b"dummy".to_string();
 
     let auth = account.new_auth(version::current(), Witness());
-    vault::deposit<Config, Outcome, VAULT_TESTS>(
+    vault::deposit<Config, VAULT_TESTS>(
         auth, 
         &mut account, 
         b"Degen".to_string(), 
@@ -247,7 +247,7 @@ fun test_error_request_transfer_insufficient_funds() {
     let key = b"dummy".to_string();
 
     let auth = account.new_auth(version::current(), Witness());
-    vault::deposit<Config, Outcome, SUI>(
+    vault::deposit<Config, SUI>(
         auth, 
         &mut account, 
         b"Degen".to_string(), 
@@ -281,7 +281,7 @@ fun test_error_request_vesting_coin_type_doesnt_exist() {
     let key = b"dummy".to_string();
 
     let auth = account.new_auth(version::current(), Witness());
-    vault::deposit<Config, Outcome, VAULT_TESTS>(
+    vault::deposit<Config, VAULT_TESTS>(
         auth, 
         &mut account, 
         b"Degen".to_string(), 
@@ -317,7 +317,7 @@ fun test_error_request_vesting_insufficient_funds() {
     let key = b"dummy".to_string();
 
     let auth = account.new_auth(version::current(), Witness());
-    vault::deposit<Config, Outcome, SUI>(
+    vault::deposit<Config, SUI>(
         auth, 
         &mut account, 
         b"Degen".to_string(), 

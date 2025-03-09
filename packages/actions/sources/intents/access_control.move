@@ -27,10 +27,10 @@ public struct BorrowCapIntent() has copy, drop;
 // === Public functions ===
 
 /// Creates a BorrowCapIntent and adds it to an Account.
-public fun request_borrow_cap<Config, Outcome, Cap>(
+public fun request_borrow_cap<Config, Outcome: store, Cap>(
     auth: Auth,
     outcome: Outcome,
-    account: &mut Account<Config, Outcome>,
+    account: &mut Account<Config>,
     key: String,
     description: String,
     execution_times: vector<u64>,
@@ -38,7 +38,7 @@ public fun request_borrow_cap<Config, Outcome, Cap>(
     ctx: &mut TxContext
 ) {
     account.verify(auth);
-    assert!(access_control::has_lock<_, _, Cap>(account), ENoLock);
+    assert!(access_control::has_lock<_, Cap>(account), ENoLock);
 
     let mut intent = account.create_intent(
         key, 
@@ -57,20 +57,20 @@ public fun request_borrow_cap<Config, Outcome, Cap>(
 }
 
 /// Executes a BorrowCapIntent, returns a cap and a hot potato.
-public fun execute_borrow_cap<Config, Outcome, Cap: key + store>(
+public fun execute_borrow_cap<Config, Outcome: store, Cap: key + store>(
     executable: &mut Executable,
-    account: &mut Account<Config, Outcome>,
+    account: &mut Account<Config>,
 ): (Borrowed<Cap>, Cap) {
-    access_control::do_borrow(executable, account, version::current(), BorrowCapIntent())
+    access_control::do_borrow<_, Outcome, _, _>(executable, account, version::current(), BorrowCapIntent())
 }
 
 /// Completes a BorrowCapIntent, destroys the executable and returns the cap to the account if the matching hot potato is returned.
-public fun complete_borrow_cap<Config, Outcome, Cap: key + store>(
+public fun complete_borrow_cap<Config, Outcome: store, Cap: key + store>(
     executable: Executable, 
-    account: &mut Account<Config, Outcome>,
+    account: &mut Account<Config>,
     borrow: Borrowed<Cap>, 
     cap: Cap
 ) {
     access_control::return_borrowed(account, borrow, cap, version::current());
-    account.confirm_execution(executable, version::current(), BorrowCapIntent());
+    account.confirm_execution<_, Outcome, _>(executable, version::current(), BorrowCapIntent());
 }

@@ -31,10 +31,10 @@ public struct ListNftsIntent() has copy, drop;
 // === Public functions ===
 
 /// Creates a TakeNftsIntent and adds it to an Account.
-public fun request_take_nfts<Config, Outcome>(
+public fun request_take_nfts<Config, Outcome: store>(
     auth: Auth,
     outcome: Outcome,
-    account: &mut Account<Config, Outcome>,
+    account: &mut Account<Config>,
     key: String,
     description: String,
     execution_time: u64,
@@ -66,31 +66,31 @@ public fun request_take_nfts<Config, Outcome>(
 }
 
 /// Executes a TakeNftsIntent, takes nfts from a kiosk managed by a account to another kiosk. Can be looped over.
-public fun execute_take_nfts<Config, Outcome, Nft: key + store>(
+public fun execute_take_nfts<Config, Outcome: store, Nft: key + store>(
     executable: &mut Executable,
-    account: &mut Account<Config, Outcome>,
+    account: &mut Account<Config>,
     account_kiosk: &mut Kiosk, 
     recipient_kiosk: &mut Kiosk, 
     recipient_cap: &KioskOwnerCap, 
     policy: &mut TransferPolicy<Nft>,
     ctx: &mut TxContext
 ): TransferRequest<Nft> {
-    acc_kiosk::do_take(executable, account, account_kiosk, recipient_kiosk, recipient_cap, policy, version::current(), TakeNftsIntent(), ctx)
+    acc_kiosk::do_take<_, Outcome, _, _>(executable, account, account_kiosk, recipient_kiosk, recipient_cap, policy, version::current(), TakeNftsIntent(), ctx)
 }
 
 /// Completes a TakeNftsIntent, destroys the executable.
-public fun complete_take_nfts<Config, Outcome>(
+public fun complete_take_nfts<Config, Outcome: store>(
     executable: Executable,
-    account: &Account<Config, Outcome>,
+    account: &Account<Config>,
 ) {
-    account.confirm_execution(executable, version::current(), TakeNftsIntent());
+    account.confirm_execution<_, Outcome, _>(executable, version::current(), TakeNftsIntent());
 }
 
 /// Creates a ListNftsIntent and adds it to an Account.
-public fun request_list_nfts<Config, Outcome>(
+public fun request_list_nfts<Config, Outcome: store>(
     auth: Auth,
     outcome: Outcome,
-    account: &mut Account<Config, Outcome>,
+    account: &mut Account<Config>,
     key: String,
     description: String,
     execution_time: u64,
@@ -123,18 +123,18 @@ public fun request_list_nfts<Config, Outcome>(
 }
 
 /// Executes a ListNftsIntent, lists nfts in a kiosk managed by a account. Can be looped over.
-public fun execute_list_nfts<Config, Outcome, Nft: key + store>(
+public fun execute_list_nfts<Config, Outcome: store, Nft: key + store>(
     executable: &mut Executable,
-    account: &mut Account<Config, Outcome>,
+    account: &mut Account<Config>,
     kiosk: &mut Kiosk,
 ) {
-    acc_kiosk::do_list<_, _, Nft, _>(executable, account, kiosk, version::current(), ListNftsIntent());
+    acc_kiosk::do_list<_, Outcome, Nft, _>(executable, account, kiosk, version::current(), ListNftsIntent());
 }
 
 /// Completes a ListNftsIntent, destroys the executable after looping over the listings.
-public fun complete_list_nfts<Config, Outcome>(
+public fun complete_list_nfts<Config, Outcome: store>(
     executable: Executable,
-    account: &Account<Config, Outcome>,
+    account: &Account<Config>,
 ) {
-    account.confirm_execution(executable, version::current(), ListNftsIntent());
+    account.confirm_execution<_, Outcome, _>(executable, version::current(), ListNftsIntent());
 }

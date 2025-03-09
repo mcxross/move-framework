@@ -56,9 +56,9 @@ public struct SpendAction<phantom CoinType> has store {
 // === Public Functions ===
 
 /// Authorized address can open a vault.
-public fun open<Config, Outcome>(
+public fun open<Config>(
     auth: Auth,
-    account: &mut Account<Config, Outcome>,
+    account: &mut Account<Config>,
     name: String,
     ctx: &mut TxContext
 ) {
@@ -69,9 +69,9 @@ public fun open<Config, Outcome>(
 }
 
 /// Deposits coins owned by a an authorized address into a vault.
-public fun deposit<Config, Outcome, CoinType: drop>(
+public fun deposit<Config, CoinType: drop>(
     auth: Auth,
-    account: &mut Account<Config, Outcome>,
+    account: &mut Account<Config>,
     name: String, 
     coin: Coin<CoinType>, 
 ) {
@@ -90,9 +90,9 @@ public fun deposit<Config, Outcome, CoinType: drop>(
 }
 
 /// Closes the vault if empty.
-public fun close<Config, Outcome>(
+public fun close<Config>(
     auth: Auth,
-    account: &mut Account<Config, Outcome>,
+    account: &mut Account<Config>,
     name: String,
 ) {
     account.verify(auth);
@@ -104,16 +104,16 @@ public fun close<Config, Outcome>(
 }
 
 /// Returns true if the vault exists.
-public fun has_vault<Config, Outcome>(
-    account: &Account<Config, Outcome>, 
+public fun has_vault<Config>(
+    account: &Account<Config>, 
     name: String
 ): bool {
     account.has_managed_data(VaultKey(name))
 }
 
 /// Returns a reference to the vault.
-public fun borrow_vault<Config, Outcome>(
-    account: &Account<Config, Outcome>, 
+public fun borrow_vault<Config>(
+    account: &Account<Config>, 
     name: String
 ): &Vault {
     assert!(has_vault(account, name), EVaultDoesntExist);
@@ -140,7 +140,7 @@ public fun coin_type_value<CoinType: drop>(vault: &Vault): u64 {
 /// Creates a DepositAction and adds it to an intent.
 public fun new_deposit<Config, Outcome, CoinType: drop, IW: drop>(
     intent: &mut Intent<Outcome>,
-    account: &Account<Config, Outcome>,
+    account: &Account<Config>,
     name: String,
     amount: u64,
     version_witness: VersionWitness,
@@ -150,14 +150,14 @@ public fun new_deposit<Config, Outcome, CoinType: drop, IW: drop>(
 }
 
 /// Processes a DepositAction and deposits a coin to the vault.
-public fun do_deposit<Config, Outcome, CoinType: drop, IW: copy + drop>(
+public fun do_deposit<Config, Outcome: store, CoinType: drop, IW: copy + drop>(
     executable: &mut Executable,
-    account: &mut Account<Config, Outcome>,
+    account: &mut Account<Config>,
     coin: Coin<CoinType>,
     version_witness: VersionWitness,
     intent_witness: IW,
 ) {
-    let action: &DepositAction<CoinType> = account.process_action(executable, version_witness, intent_witness);
+    let action = account.process_action<_, Outcome, DepositAction<CoinType>, _>(executable, version_witness, intent_witness);
     let name = action.name;
     assert!(action.amount == coin.value());
     
@@ -178,7 +178,7 @@ public fun delete_deposit<CoinType>(expired: &mut Expired) {
 /// Creates a SpendAction and adds it to an intent.
 public fun new_spend<Config, Outcome, CoinType: drop, IW: drop>(
     intent: &mut Intent<Outcome>,
-    account: &Account<Config, Outcome>,
+    account: &Account<Config>,
     name: String,
     amount: u64,
     version_witness: VersionWitness,
@@ -188,14 +188,14 @@ public fun new_spend<Config, Outcome, CoinType: drop, IW: drop>(
 }
 
 /// Processes a SpendAction and takes a coin from the vault.
-public fun do_spend<Config, Outcome, CoinType: drop, IW: copy + drop>(
+public fun do_spend<Config, Outcome: store, CoinType: drop, IW: copy + drop>(
     executable: &mut Executable,
-    account: &mut Account<Config, Outcome>,
+    account: &mut Account<Config>,
     version_witness: VersionWitness,
     intent_witness: IW,
     ctx: &mut TxContext
 ): Coin<CoinType> {
-    let action: &SpendAction<CoinType> = account.process_action(executable, version_witness, intent_witness);
+    let action = account.process_action<_, Outcome, SpendAction<CoinType>, _>(executable, version_witness, intent_witness);
     let (name, amount) = (action.name, action.amount);
     
     let vault: &mut Vault = account.borrow_managed_data_mut(VaultKey(name), version_witness);

@@ -31,10 +31,10 @@ public struct SpendAndVestIntent() has copy, drop;
 // === Public Functions ===
 
 /// Creates a SpendAndTransferIntent and adds it to an Account.
-public fun request_spend_and_transfer<Config, Outcome, CoinType: drop>(
+public fun request_spend_and_transfer<Config, Outcome: store, CoinType: drop>(
     auth: Auth,
     outcome: Outcome,
-    account: &mut Account<Config, Outcome>, 
+    account: &mut Account<Config>, 
     key: String,
     description: String,
     execution_times: vector<u64>,
@@ -72,28 +72,28 @@ public fun request_spend_and_transfer<Config, Outcome, CoinType: drop>(
 }
 
 /// Executes a SpendAndTransferIntent, transfers coins from the vault to the recipients. Can be looped over.
-public fun execute_spend_and_transfer<Config, Outcome, CoinType: drop>(
+public fun execute_spend_and_transfer<Config, Outcome: store, CoinType: drop>(
     executable: &mut Executable, 
-    account: &mut Account<Config, Outcome>, 
+    account: &mut Account<Config>, 
     ctx: &mut TxContext
 ) {
-    let coin: Coin<CoinType> = vault::do_spend(executable, account, version::current(), SpendAndTransferIntent(), ctx);
-    acc_transfer::do_transfer(executable, account, coin, version::current(), SpendAndTransferIntent());
+    let coin: Coin<CoinType> = vault::do_spend<_, Outcome, _, _>(executable, account, version::current(), SpendAndTransferIntent(), ctx);
+    acc_transfer::do_transfer<_, Outcome, _, _>(executable, account, coin, version::current(), SpendAndTransferIntent());
 }
 
 /// Completes a SpendAndTransferIntent, destroys the executable after looping over the transfers.
-public fun complete_spend_and_transfer<Config, Outcome>(
+public fun complete_spend_and_transfer<Config, Outcome: store>(
     executable: Executable,
-    account: &Account<Config, Outcome>,
+    account: &Account<Config>,
 ) {
-    account.confirm_execution(executable, version::current(), SpendAndTransferIntent());
+    account.confirm_execution<_, Outcome, _>(executable, version::current(), SpendAndTransferIntent());
 }
 
 /// Creates a SpendAndVestIntent and adds it to an Account.
-public fun request_spend_and_vest<Config, Outcome, CoinType: drop>(
+public fun request_spend_and_vest<Config, Outcome: store, CoinType: drop>(
     auth: Auth,
     outcome: Outcome,
-    account: &mut Account<Config, Outcome>, 
+    account: &mut Account<Config>, 
     key: String,
     description: String,
     execution_time: u64,
@@ -132,12 +132,12 @@ public fun request_spend_and_vest<Config, Outcome, CoinType: drop>(
 }
 
 /// Executes a SpendAndVestIntent, create a vesting from a coin in the vault.
-public fun execute_spend_and_vest<Config, Outcome, CoinType: drop>(
+public fun execute_spend_and_vest<Config, Outcome: store, CoinType: drop>(
     mut executable: Executable, 
-    account: &mut Account<Config, Outcome>, 
+    account: &mut Account<Config>, 
     ctx: &mut TxContext
 ) {
-    let coin: Coin<CoinType> = vault::do_spend(&mut executable, account, version::current(), SpendAndVestIntent(), ctx);
-    vesting::do_vest(&mut executable, account, coin, version::current(), SpendAndVestIntent(), ctx);
-    account.confirm_execution(executable, version::current(), SpendAndVestIntent());
+    let coin: Coin<CoinType> = vault::do_spend<_, Outcome, _, _>(&mut executable, account, version::current(), SpendAndVestIntent(), ctx);
+    vesting::do_vest<_, Outcome, _, _>(&mut executable, account, coin, version::current(), SpendAndVestIntent(), ctx);
+    account.confirm_execution<_, Outcome, _>(executable, version::current(), SpendAndVestIntent());
 }

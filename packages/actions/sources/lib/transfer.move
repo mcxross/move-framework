@@ -25,7 +25,7 @@ public struct TransferAction has store {
 /// Creates a TransferAction and adds it to an intent.
 public fun new_transfer<Config, Outcome, IW: drop>(
     intent: &mut Intent<Outcome>, 
-    account: &Account<Config, Outcome>, 
+    account: &Account<Config>, 
     recipient: address,
     version_witness: VersionWitness,
     intent_witness: IW,
@@ -34,14 +34,14 @@ public fun new_transfer<Config, Outcome, IW: drop>(
 }
 
 /// Processes a TransferAction and transfers an object to a recipient.
-public fun do_transfer<Config, Outcome, T: key + store, IW: drop>(
+public fun do_transfer<Config, Outcome: store, T: key + store, IW: drop>(
     executable: &mut Executable, 
-    account: &mut Account<Config, Outcome>, 
+    account: &mut Account<Config>, 
     object: T,
     version_witness: VersionWitness,
     intent_witness: IW,
 ) {
-    let action: &TransferAction = account.process_action(executable, version_witness, intent_witness);
+    let action = account.process_action<_, Outcome, TransferAction, _>(executable, version_witness, intent_witness);
     transfer::public_transfer(object, action.recipient);
 }
 

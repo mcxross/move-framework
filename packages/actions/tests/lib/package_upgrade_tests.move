@@ -36,7 +36,7 @@ public struct Outcome has copy, drop, store {}
 
 // === Helpers ===
 
-fun start(): (Scenario, Extensions, Account<Config, Outcome>, Clock, UpgradeCap) {
+fun start(): (Scenario, Extensions, Account<Config>, Clock, UpgradeCap) {
     let mut scenario = ts::begin(OWNER);
     // publish package
     extensions::init_for_testing(scenario.ctx());
@@ -57,7 +57,7 @@ fun start(): (Scenario, Extensions, Account<Config, Outcome>, Clock, UpgradeCap)
     (scenario, extensions, account, clock, upgrade_cap)
 }
 
-fun end(scenario: Scenario, extensions: Extensions, account: Account<Config, Outcome>, clock: Clock) {
+fun end(scenario: Scenario, extensions: Extensions, account: Account<Config>, clock: Clock) {
     destroy(extensions);
     destroy(account);
     destroy(clock);
@@ -66,7 +66,7 @@ fun end(scenario: Scenario, extensions: Extensions, account: Account<Config, Out
 
 fun create_dummy_intent(
     scenario: &mut Scenario,
-    account: &mut Account<Config, Outcome>, 
+    account: &mut Account<Config>, 
 ): Intent<Outcome> {
     account.create_intent(
         b"dummy".to_string(), 
@@ -85,7 +85,7 @@ fun create_dummy_intent(
 
 #[test]
 fun test_lock() {
-    let (mut scenario, extensions, mut account, clock, upgrade_cap) = start();
+    let (scenario, extensions, mut account, clock, upgrade_cap) = start();
 
     let auth = account.new_auth(version::current(), DummyIntent());
     package_upgrade::lock_cap(auth, &mut account, upgrade_cap, b"Degen".to_string(), 1000);
@@ -113,8 +113,8 @@ fun test_upgrade_flow() {
     account.add_intent(intent, version::current(), DummyIntent());
     clock.increment_for_testing(1000);
 
-    let (mut executable, _) = account.execute_intent(key, &clock, version::current(), DummyIntent());
-    let ticket = package_upgrade::do_upgrade(
+    let (mut executable, _) = account.execute_intent<_, Outcome, _>(key, &clock, version::current(), DummyIntent());
+    let ticket = package_upgrade::do_upgrade<_, Outcome, _>(
         &mut executable, 
         &mut account, 
         &clock,
@@ -123,14 +123,14 @@ fun test_upgrade_flow() {
     );
 
     let receipt = ticket.test_upgrade();
-    package_upgrade::confirm_upgrade(
+    package_upgrade::confirm_upgrade<_, Outcome, _>(
         &executable, 
         &mut account, 
         receipt, 
         version::current(), 
         DummyIntent(),
     );
-    account.confirm_execution(executable, version::current(), DummyIntent());
+    account.confirm_execution<_, Outcome, _>(executable, version::current(), DummyIntent());
 
     end(scenario, extensions, account, clock);
 }
@@ -147,14 +147,14 @@ fun test_restrict_flow_additive() {
     package_upgrade::new_restrict(&mut intent, &account, b"Degen".to_string(), 128, version::current(), DummyIntent());
     account.add_intent(intent, version::current(), DummyIntent());
 
-    let (mut executable, _) = account.execute_intent(key, &clock, version::current(), DummyIntent());
-    package_upgrade::do_restrict(
+    let (mut executable, _) = account.execute_intent<_, Outcome, _>(key, &clock, version::current(), DummyIntent());
+    package_upgrade::do_restrict<_, Outcome, _>(
         &mut executable, 
         &mut account, 
         version::current(), 
         DummyIntent(),
     );
-    account.confirm_execution(executable, version::current(), DummyIntent());
+    account.confirm_execution<_, Outcome, _>(executable, version::current(), DummyIntent());
 
     let cap = package_upgrade::borrow_cap(&account, @0x1);
     assert!(cap.policy() == 128);
@@ -174,14 +174,14 @@ fun test_restrict_flow_deps_only() {
     package_upgrade::new_restrict(&mut intent, &account, b"Degen".to_string(), 192, version::current(), DummyIntent());
     account.add_intent(intent, version::current(), DummyIntent());
 
-    let (mut executable, _) = account.execute_intent(key, &clock, version::current(), DummyIntent());
-    package_upgrade::do_restrict(
+    let (mut executable, _) = account.execute_intent<_, Outcome, _>(key, &clock, version::current(), DummyIntent());
+    package_upgrade::do_restrict<_, Outcome, _>(
         &mut executable, 
         &mut account, 
         version::current(), 
         DummyIntent(),
     );
-    account.confirm_execution(executable, version::current(), DummyIntent());
+    account.confirm_execution<_, Outcome, _>(executable, version::current(), DummyIntent());
 
     let cap = package_upgrade::borrow_cap(&account, @0x1);
     assert!(cap.policy() == 192);
@@ -201,14 +201,14 @@ fun test_restrict_flow_immutable() {
     package_upgrade::new_restrict(&mut intent, &account, b"Degen".to_string(), 255, version::current(), DummyIntent());
     account.add_intent(intent, version::current(), DummyIntent());
 
-    let (mut executable, _) = account.execute_intent(key, &clock, version::current(), DummyIntent());
-    package_upgrade::do_restrict(
+    let (mut executable, _) = account.execute_intent<_, Outcome, _>(key, &clock, version::current(), DummyIntent());
+    package_upgrade::do_restrict<_, Outcome, _>(
         &mut executable, 
         &mut account, 
         version::current(), 
         DummyIntent(),
     );
-    account.confirm_execution(executable, version::current(), DummyIntent());
+    account.confirm_execution<_, Outcome, _>(executable, version::current(), DummyIntent());
 
     assert!(!package_upgrade::has_cap(&account, b"Degen".to_string()));
 
@@ -228,7 +228,7 @@ fun test_upgrade_expired() {
     package_upgrade::new_upgrade(&mut intent, &account, b"Degen".to_string(), b"", &clock, version::current(), DummyIntent());
     account.add_intent(intent, version::current(), DummyIntent());
     
-    let mut expired = account.delete_expired_intent(key, &clock);
+    let mut expired = account.delete_expired_intent<_, Outcome>(key, &clock);
     package_upgrade::delete_upgrade(&mut expired);
     expired.destroy_empty();
 
@@ -248,7 +248,7 @@ fun test_restrict_expired() {
     package_upgrade::new_restrict(&mut intent, &account, b"Degen".to_string(), 128, version::current(), DummyIntent());
     account.add_intent(intent, version::current(), DummyIntent());
     
-    let mut expired = account.delete_expired_intent(key, &clock);
+    let mut expired = account.delete_expired_intent<_, Outcome>(key, &clock);
     package_upgrade::delete_restrict(&mut expired);
     expired.destroy_empty();
 
@@ -351,9 +351,9 @@ fun test_error_do_upgrade_from_wrong_account() {
     package_upgrade::new_upgrade(&mut intent, &account, b"Degen".to_string(), b"", &clock, version::current(), DummyIntent());
     account2.add_intent(intent, version::current(), DummyIntent());
 
-    let (mut executable, _) = account2.execute_intent(key, &clock, version::current(), DummyIntent());
+    let (mut executable, _) = account2.execute_intent<_, Outcome, _>(key, &clock, version::current(), DummyIntent());
     // try to burn from the right account that didn't approve the intent
-    let ticket = package_upgrade::do_upgrade(
+    let ticket = package_upgrade::do_upgrade<_, Outcome, _>(
         &mut executable, 
         &mut account, 
         &clock,
@@ -379,9 +379,9 @@ fun test_error_do_upgrade_from_wrong_constructor_witness() {
     package_upgrade::new_upgrade(&mut intent, &account, b"Degen".to_string(), b"", &clock, version::current(), DummyIntent());
     account.add_intent(intent, version::current(), DummyIntent());
 
-    let (mut executable, _) = account.execute_intent(key, &clock, version::current(), DummyIntent());
+    let (mut executable, _) = account.execute_intent<_, Outcome, _>(key, &clock, version::current(), DummyIntent());
     // try to mint with the wrong witness that didn't approve the intent
-    let ticket = package_upgrade::do_upgrade(
+    let ticket = package_upgrade::do_upgrade<_, Outcome, _>(
         &mut executable, 
         &mut account, 
         &clock,
@@ -406,9 +406,9 @@ fun test_error_do_upgrade_from_not_dep() {
     package_upgrade::new_upgrade(&mut intent, &account, b"Degen".to_string(), b"", &clock, version::current(), DummyIntent());
     account.add_intent(intent, version::current(), DummyIntent());
 
-    let (mut executable, _) = account.execute_intent(key, &clock, version::current(), DummyIntent());
+    let (mut executable, _) = account.execute_intent<_, Outcome, _>(key, &clock, version::current(), DummyIntent());
     // try to mint with the wrong version TypeName that didn't approve the intent
-    let ticket = package_upgrade::do_upgrade(
+    let ticket = package_upgrade::do_upgrade<_, Outcome, _>(
         &mut executable, 
         &mut account, 
         &clock,
@@ -437,9 +437,9 @@ fun test_error_confirm_upgrade_from_wrong_account() {
     package_upgrade::new_upgrade(&mut intent, &account, b"Degen".to_string(), b"", &clock, version::current(), DummyIntent());
     account2.add_intent(intent, version::current(), DummyIntent());
 
-    let (mut executable, _) = account2.execute_intent(key, &clock, version::current(), DummyIntent());
+    let (mut executable, _) = account2.execute_intent<_, Outcome, _>(key, &clock, version::current(), DummyIntent());
     // try to burn from the right account that didn't approve the intent
-    let ticket = package_upgrade::do_upgrade(
+    let ticket = package_upgrade::do_upgrade<_, Outcome, _>(
         &mut executable, 
         &mut account2, 
         &clock,
@@ -448,7 +448,7 @@ fun test_error_confirm_upgrade_from_wrong_account() {
     );
 
     let receipt = ticket.test_upgrade();
-    package_upgrade::confirm_upgrade(
+    package_upgrade::confirm_upgrade<_, Outcome, _>(
         &executable, 
         &mut account, 
         receipt, 
@@ -473,9 +473,9 @@ fun test_error_confirm_upgrade_from_wrong_constructor_witness() {
     package_upgrade::new_upgrade(&mut intent, &account, b"Degen".to_string(), b"", &clock, version::current(), DummyIntent());
     account.add_intent(intent, version::current(), DummyIntent());
 
-    let (mut executable, _) = account.execute_intent(key, &clock, version::current(), DummyIntent());
+    let (mut executable, _) = account.execute_intent<_, Outcome, _>(key, &clock, version::current(), DummyIntent());
     // try to mint with the wrong witness that didn't approve the intent
-    let ticket = package_upgrade::do_upgrade(
+    let ticket = package_upgrade::do_upgrade<_, Outcome, _>(
         &mut executable, 
         &mut account, 
         &clock,
@@ -484,7 +484,7 @@ fun test_error_confirm_upgrade_from_wrong_constructor_witness() {
     );
 
     let receipt = ticket.test_upgrade();
-    package_upgrade::confirm_upgrade(
+    package_upgrade::confirm_upgrade<_, Outcome, _>(
         &executable, 
         &mut account, 
         receipt, 
@@ -508,9 +508,9 @@ fun test_error_confirm_upgrade_from_not_dep() {
     package_upgrade::new_upgrade(&mut intent, &account, b"Degen".to_string(), b"", &clock, version::current(), DummyIntent());
     account.add_intent(intent, version::current(), DummyIntent());
 
-    let (mut executable, _) = account.execute_intent(key, &clock, version::current(), DummyIntent());
+    let (mut executable, _) = account.execute_intent<_, Outcome, _>(key, &clock, version::current(), DummyIntent());
     // try to mint with the wrong version TypeName that didn't approve the intent
-    let ticket = package_upgrade::do_upgrade(
+    let ticket = package_upgrade::do_upgrade<_, Outcome, _>(
         &mut executable, 
         &mut account, 
         &clock,
@@ -519,7 +519,7 @@ fun test_error_confirm_upgrade_from_not_dep() {
     );
 
     let receipt = ticket.test_upgrade();
-    package_upgrade::confirm_upgrade(
+    package_upgrade::confirm_upgrade<_, Outcome, _>(
         &executable, 
         &mut account, 
         receipt, 
@@ -545,9 +545,9 @@ fun test_error_do_restrict_from_wrong_account() {
     package_upgrade::new_upgrade(&mut intent, &account, b"Degen".to_string(), b"", &clock, version::current(), DummyIntent());
     account2.add_intent(intent, version::current(), DummyIntent());
 
-    let (mut executable, _) = account2.execute_intent(key, &clock, version::current(), DummyIntent());
+    let (mut executable, _) = account2.execute_intent<_, Outcome, _>(key, &clock, version::current(), DummyIntent());
     // try to burn from the right account that didn't approve the intent
-    package_upgrade::do_restrict(
+    package_upgrade::do_restrict<_, Outcome, _>(
         &mut executable, 
         &mut account, 
         version::current(), 
@@ -571,9 +571,9 @@ fun test_error_do_restrict_from_wrong_constructor_witness() {
     package_upgrade::new_upgrade(&mut intent, &account, b"Degen".to_string(), b"", &clock, version::current(), DummyIntent());
     account.add_intent(intent, version::current(), DummyIntent());
 
-    let (mut executable, _) = account.execute_intent(key, &clock, version::current(), DummyIntent());
+    let (mut executable, _) = account.execute_intent<_, Outcome, _>(key, &clock, version::current(), DummyIntent());
     // try to mint with the wrong witness that didn't approve the intent
-    package_upgrade::do_restrict(
+    package_upgrade::do_restrict<_, Outcome, _>(
         &mut executable, 
         &mut account, 
         version::current(), 
@@ -596,9 +596,9 @@ fun test_error_do_restrict_from_not_dep() {
     package_upgrade::new_upgrade(&mut intent, &account, b"Degen".to_string(), b"", &clock, version::current(), DummyIntent());
     account.add_intent(intent, version::current(), DummyIntent());
 
-    let (mut executable, _) = account.execute_intent(key, &clock, version::current(), DummyIntent());
+    let (mut executable, _) = account.execute_intent<_, Outcome, _>(key, &clock, version::current(), DummyIntent());
     // try to mint with the wrong version TypeName that didn't approve the intent
-    package_upgrade::do_restrict(
+    package_upgrade::do_restrict<_, Outcome, _>(
         &mut executable, 
         &mut account, 
         version_witness::new_for_testing(@0xFA153), 

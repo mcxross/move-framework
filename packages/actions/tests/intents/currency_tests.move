@@ -38,7 +38,7 @@ public struct Outcome has copy, drop, store {}
 
 // === Helpers ===
 
-fun start(): (Scenario, Extensions, Account<Config, Outcome>, Clock, TreasuryCap<CURRENCY_INTENTS_TESTS>, CoinMetadata<CURRENCY_INTENTS_TESTS>) {
+fun start(): (Scenario, Extensions, Account<Config>, Clock, TreasuryCap<CURRENCY_INTENTS_TESTS>, CoinMetadata<CURRENCY_INTENTS_TESTS>) {
     let mut scenario = ts::begin(OWNER);
     // publish package
     extensions::init_for_testing(scenario.ctx());
@@ -68,7 +68,7 @@ fun start(): (Scenario, Extensions, Account<Config, Outcome>, Clock, TreasuryCap
     (scenario, extensions, account, clock, treasury_cap, metadata)
 }
 
-fun end(scenario: Scenario, extensions: Extensions, account: Account<Config, Outcome>, clock: Clock, metadata: CoinMetadata<CURRENCY_INTENTS_TESTS>) {
+fun end(scenario: Scenario, extensions: Extensions, account: Account<Config>, clock: Clock, metadata: CoinMetadata<CURRENCY_INTENTS_TESTS>) {
     destroy(extensions);
     destroy(account);
     destroy(clock);
@@ -105,14 +105,14 @@ fun test_request_execute_disable_rules() {
         scenario.ctx()
     );
 
-    let (executable, _) = account::execute_intent(&mut account, key, &clock, version::current(), Witness());
+    let (executable, _) = account::execute_intent<_, Outcome, _>(&mut account, key, &clock, version::current(), Witness());
     currency_intents::execute_disable_rules<Config, Outcome, CURRENCY_INTENTS_TESTS>(executable, &mut account);
 
-    let mut expired = account.destroy_empty_intent(key);
+    let mut expired = account.destroy_empty_intent<_, Outcome>(key);
     currency::delete_disable<CURRENCY_INTENTS_TESTS>(&mut expired);
     expired.destroy_empty();
 
-    let lock = currency::borrow_rules<Config, Outcome, CURRENCY_INTENTS_TESTS>(&account);
+    let lock = currency::borrow_rules<Config, CURRENCY_INTENTS_TESTS>(&account);
     assert!(lock.can_mint() == false);
     assert!(lock.can_burn() == false);
     assert!(lock.can_update_name() == false);
@@ -147,17 +147,17 @@ fun test_request_execute_mint_and_keep() {
         scenario.ctx()
     );
 
-    let (mut executable, _) = account::execute_intent(&mut account, key, &clock, version::current(), Witness());
-    currency_intents::execute_mint_and_transfer<Config, Outcome, CURRENCY_INTENTS_TESTS>(&mut executable, &mut account, scenario.ctx());
-    currency_intents::complete_mint_and_transfer(executable, &account);
+    let (mut executable, _) = account::execute_intent<_, Outcome, _>(&mut account, key, &clock, version::current(), Witness());
+    currency_intents::execute_mint_and_transfer<_, Outcome, CURRENCY_INTENTS_TESTS>(&mut executable, &mut account, scenario.ctx());
+    currency_intents::complete_mint_and_transfer<_, Outcome>(executable, &account);
 
-    let mut expired = account.destroy_empty_intent(key);
+    let mut expired = account.destroy_empty_intent<_, Outcome>(key);
     currency::delete_mint<CURRENCY_INTENTS_TESTS>(&mut expired);
     acc_transfer::delete_transfer(&mut expired);
     expired.destroy_empty();
 
-    let lock = currency::borrow_rules<Config, Outcome, CURRENCY_INTENTS_TESTS>(&account);
-    let supply = currency::coin_type_supply<Config, Outcome, CURRENCY_INTENTS_TESTS>(&account);
+    let lock = currency::borrow_rules<_, CURRENCY_INTENTS_TESTS>(&account);
+    let supply = currency::coin_type_supply<_, CURRENCY_INTENTS_TESTS>(&account);
     assert!(supply == 5);
     assert!(lock.total_minted() == 5);
     assert!(lock.total_burned() == 0);
@@ -189,12 +189,12 @@ fun test_request_execute_mint_and_keep_with_max_supply() {
         scenario.ctx()
     );
 
-    let (mut executable, _) = account::execute_intent(&mut account, key, &clock, version::current(), Witness());
-    currency_intents::execute_mint_and_transfer<Config, Outcome, CURRENCY_INTENTS_TESTS>(&mut executable, &mut account, scenario.ctx());
-    currency_intents::complete_mint_and_transfer(executable, &account);
+    let (mut executable, _) = account::execute_intent<_, Outcome, _>(&mut account, key, &clock, version::current(), Witness());
+    currency_intents::execute_mint_and_transfer<_, Outcome, CURRENCY_INTENTS_TESTS>(&mut executable, &mut account, scenario.ctx());
+    currency_intents::complete_mint_and_transfer<_, Outcome>(executable, &account);
 
-    let lock = currency::borrow_rules<Config, Outcome, CURRENCY_INTENTS_TESTS>(&account);
-    let supply = currency::coin_type_supply<Config, Outcome, CURRENCY_INTENTS_TESTS>(&account);
+    let lock = currency::borrow_rules<_, CURRENCY_INTENTS_TESTS>(&account);
+    let supply = currency::coin_type_supply<_, CURRENCY_INTENTS_TESTS>(&account);
     assert!(supply == 5);
     assert!(lock.total_minted() == 5);
     assert!(lock.total_burned() == 0);
@@ -232,16 +232,16 @@ fun test_request_execute_withdraw_and_burn() {
         scenario.ctx()
     );
 
-    let (executable, _) = account::execute_intent(&mut account, key, &clock, version::current(), Witness());
-    currency_intents::execute_withdraw_and_burn<Config, Outcome, CURRENCY_INTENTS_TESTS>(executable, &mut account, receiving);
+    let (executable, _) = account::execute_intent<_, Outcome, _>(&mut account, key, &clock, version::current(), Witness());
+    currency_intents::execute_withdraw_and_burn<_, Outcome, CURRENCY_INTENTS_TESTS>(executable, &mut account, receiving);
 
-    let mut expired = account.destroy_empty_intent(key);
+    let mut expired = account.destroy_empty_intent<_, Outcome>(key);
     owned::delete_withdraw(&mut expired, &mut account);
     currency::delete_burn<CURRENCY_INTENTS_TESTS>(&mut expired);
     expired.destroy_empty();
 
-    let lock = currency::borrow_rules<Config, Outcome, CURRENCY_INTENTS_TESTS>(&account);
-    let supply = currency::coin_type_supply<Config, Outcome, CURRENCY_INTENTS_TESTS>(&account);
+    let lock = currency::borrow_rules<_, CURRENCY_INTENTS_TESTS>(&account);
+    let supply = currency::coin_type_supply<_, CURRENCY_INTENTS_TESTS>(&account);
     assert!(supply == 0);
     assert!(lock.total_minted() == 0);
     assert!(lock.total_burned() == 5);
@@ -273,10 +273,10 @@ fun test_request_execute_update_metadata() {
         scenario.ctx()
     );
 
-    let (executable, _) = account::execute_intent(&mut account, key, &clock, version::current(), Witness());
+    let (executable, _) = account::execute_intent<_, Outcome, _>(&mut account, key, &clock, version::current(), Witness());
     currency_intents::execute_update_metadata<Config, Outcome, CURRENCY_INTENTS_TESTS>(executable, &mut account, &mut metadata);
 
-    let mut expired = account.destroy_empty_intent(key);
+    let mut expired = account.destroy_empty_intent<_, Outcome>(key);
     currency::delete_update<CURRENCY_INTENTS_TESTS>(&mut expired);
     expired.destroy_empty();
 
@@ -310,14 +310,14 @@ fun test_request_execute_mint_and_transfer() {
         scenario.ctx()
     );
 
-    let (mut executable, _) = account::execute_intent(&mut account, key, &clock, version::current(), Witness());
+    let (mut executable, _) = account::execute_intent<_, Outcome, _>(&mut account, key, &clock, version::current(), Witness());
     // loop over execute_mint_and_transfer to execute each action
     3u64.do!<u64>(|_| {
-        currency_intents::execute_mint_and_transfer<Config, Outcome, CURRENCY_INTENTS_TESTS>(&mut executable, &mut account, scenario.ctx());
+        currency_intents::execute_mint_and_transfer<_, Outcome, CURRENCY_INTENTS_TESTS>(&mut executable, &mut account, scenario.ctx());
     });
-    currency_intents::complete_mint_and_transfer(executable, &account);
+    currency_intents::complete_mint_and_transfer<_, Outcome>(executable, &account);
 
-    let mut expired = account.destroy_empty_intent(key);
+    let mut expired = account.destroy_empty_intent<_, Outcome>(key);
     currency::delete_mint<CURRENCY_INTENTS_TESTS>(&mut expired);
     acc_transfer::delete_transfer(&mut expired);
     currency::delete_mint<CURRENCY_INTENTS_TESTS>(&mut expired);
@@ -364,10 +364,10 @@ fun test_request_execute_mint_and_vest() {
         scenario.ctx()
     );
 
-    let (executable, _) = account::execute_intent(&mut account, key, &clock, version::current(), Witness());
-    currency_intents::execute_mint_and_vest<Config, Outcome, CURRENCY_INTENTS_TESTS>(executable, &mut account, scenario.ctx());
+    let (executable, _) = account::execute_intent<_, Outcome, _>(&mut account, key, &clock, version::current(), Witness());
+    currency_intents::execute_mint_and_vest<_, Outcome, CURRENCY_INTENTS_TESTS>(executable, &mut account, scenario.ctx());
 
-    let mut expired = account.destroy_empty_intent(key);
+    let mut expired = account.destroy_empty_intent<_, Outcome>(key);
     currency::delete_mint<CURRENCY_INTENTS_TESTS>(&mut expired);
     vesting::delete_vest(&mut expired);
     expired.destroy_empty();

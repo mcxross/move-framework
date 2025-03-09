@@ -48,7 +48,7 @@ public struct Outcome has copy, drop, store {}
 
 // === Helpers ===
 
-fun start(): (Scenario, Extensions, Account<Config, Outcome>, Clock, TransferPolicy<Nft>) {
+fun start(): (Scenario, Extensions, Account<Config>, Clock, TransferPolicy<Nft>) {
     let mut scenario = ts::begin(OWNER);
     // publish package
     extensions::init_for_testing(scenario.ctx());
@@ -75,7 +75,7 @@ fun start(): (Scenario, Extensions, Account<Config, Outcome>, Clock, TransferPol
     (scenario, extensions, account, clock, policy)
 }
 
-fun end(scenario: Scenario, extensions: Extensions, account: Account<Config, Outcome>, clock: Clock, policy: TransferPolicy<Nft>) {
+fun end(scenario: Scenario, extensions: Extensions, account: Account<Config>, clock: Clock, policy: TransferPolicy<Nft>) {
     destroy(extensions);
     destroy(account);
     destroy(policy);
@@ -96,7 +96,7 @@ fun init_caller_kiosk_with_nfts(policy: &TransferPolicy<Nft>, amount: u64, scena
     (kiosk, kiosk_cap, ids)
 }
 
-fun init_account_kiosk_with_nfts(account: &mut Account<Config, Outcome>, policy: &mut TransferPolicy<Nft>, amount: u64, scenario: &mut Scenario): (Kiosk, vector<ID>) {
+fun init_account_kiosk_with_nfts(account: &mut Account<Config>, policy: &mut TransferPolicy<Nft>, amount: u64, scenario: &mut Scenario): (Kiosk, vector<ID>) {
     let auth = account.new_auth(version::current(), DummyIntent());
     acc_kiosk::open(auth, account, b"Degen".to_string(), scenario.ctx());
     scenario.next_tx(OWNER);
@@ -128,7 +128,7 @@ fun init_account_kiosk_with_nfts(account: &mut Account<Config, Outcome>, policy:
 
 fun create_dummy_intent(
     scenario: &mut Scenario,
-    account: &mut Account<Config, Outcome>, 
+    account: &mut Account<Config>, 
 ): Intent<Outcome> {
     account.create_intent(
         b"dummy".to_string(), 
@@ -245,16 +245,16 @@ fun test_delist_nfts() {
         scenario.ctx()
     );
 
-    let (mut executable, _) = account.execute_intent(b"dummy".to_string(), &clock, version::current(), DummyIntent());
-    acc_kiosk_intents::execute_list_nfts<_, _, Nft>(&mut executable, &mut account, &mut acc_kiosk);
-    acc_kiosk_intents::execute_list_nfts<_, _, Nft>(&mut executable, &mut account, &mut acc_kiosk);
-    acc_kiosk_intents::complete_list_nfts(executable, &account);
+    let (mut executable, _) = account.execute_intent<_, Outcome, _>(b"dummy".to_string(), &clock, version::current(), DummyIntent());
+    acc_kiosk_intents::execute_list_nfts<_, Outcome, Nft>(&mut executable, &mut account, &mut acc_kiosk);
+    acc_kiosk_intents::execute_list_nfts<_, Outcome, Nft>(&mut executable, &mut account, &mut acc_kiosk);
+    acc_kiosk_intents::complete_list_nfts<_, Outcome>(executable, &account);
 
     // delist nfts
     let auth = account.new_auth(version::current(), DummyIntent());
-    acc_kiosk::delist<_, _, Nft>(auth, &mut account, &mut acc_kiosk, b"Degen".to_string(), ids.pop_back());
+    acc_kiosk::delist<_, Nft>(auth, &mut account, &mut acc_kiosk, b"Degen".to_string(), ids.pop_back());
     let auth = account.new_auth(version::current(), DummyIntent());
-    acc_kiosk::delist<_, _, Nft>(auth, &mut account, &mut acc_kiosk, b"Degen".to_string(), ids.pop_back());
+    acc_kiosk::delist<_, Nft>(auth, &mut account, &mut acc_kiosk, b"Degen".to_string(), ids.pop_back());
 
     destroy(acc_kiosk);
     end(scenario, extensions, account, clock, policy);
@@ -284,10 +284,10 @@ fun test_withdraw_profits() {
         scenario.ctx()
     );
 
-    let (mut executable, _) = account.execute_intent(b"dummy".to_string(), &clock, version::current(), DummyIntent());
-    acc_kiosk_intents::execute_list_nfts<_, _, Nft>(&mut executable, &mut account, &mut acc_kiosk);
-    acc_kiosk_intents::execute_list_nfts<_, _, Nft>(&mut executable, &mut account, &mut acc_kiosk);
-    acc_kiosk_intents::complete_list_nfts(executable, &account);
+    let (mut executable, _) = account.execute_intent<_, Outcome, _>(b"dummy".to_string(), &clock, version::current(), DummyIntent());
+    acc_kiosk_intents::execute_list_nfts<_, Outcome, Nft>(&mut executable, &mut account, &mut acc_kiosk);
+    acc_kiosk_intents::execute_list_nfts<_, Outcome, Nft>(&mut executable, &mut account, &mut acc_kiosk);
+    acc_kiosk_intents::complete_list_nfts<_, Outcome>(executable, &account);
 
     // purchase nfts
     let (nft1, mut request1) = acc_kiosk.purchase<Nft>(ids.pop_back(), coin::mint_for_testing<SUI>(200, scenario.ctx()));
@@ -347,8 +347,8 @@ fun test_take_flow() {
     acc_kiosk::new_take(&mut intent, &account, b"Degen".to_string(), ids.pop_back(), OWNER, version::current(), DummyIntent());
     account.add_intent(intent, version::current(), DummyIntent());
 
-    let (mut executable, _) = account.execute_intent(key, &clock, version::current(), DummyIntent());
-    let request = acc_kiosk::do_take<_, _, Nft, DummyIntent>(
+    let (mut executable, _) = account.execute_intent<_, Outcome, _>(key, &clock, version::current(), DummyIntent());
+    let request = acc_kiosk::do_take<_, Outcome, Nft, DummyIntent>(
         &mut executable, 
         &mut account, 
         &mut acc_kiosk,
@@ -360,7 +360,7 @@ fun test_take_flow() {
         scenario.ctx()
     );
     policy.confirm_request(request);
-    account.confirm_execution(executable, version::current(), DummyIntent());
+    account.confirm_execution<_, Outcome, _>(executable, version::current(), DummyIntent());
 
     destroy(acc_kiosk);
     destroy(caller_kiosk);
@@ -378,15 +378,15 @@ fun test_list_flow() {
     acc_kiosk::new_list(&mut intent, &account, b"Degen".to_string(), ids.pop_back(), 100, version::current(), DummyIntent());
     account.add_intent(intent, version::current(), DummyIntent());
 
-    let (mut executable, _) = account.execute_intent(key, &clock, version::current(), DummyIntent());
-    acc_kiosk::do_list<_, _, Nft, DummyIntent>(
+    let (mut executable, _) = account.execute_intent<_, Outcome, _>(key, &clock, version::current(), DummyIntent());
+    acc_kiosk::do_list<_, Outcome, Nft, DummyIntent>(
         &mut executable, 
         &mut account, 
         &mut acc_kiosk,
         version::current(),
         DummyIntent(),
     );
-    account.confirm_execution(executable, version::current(), DummyIntent());
+    account.confirm_execution<_, Outcome, _>(executable, version::current(), DummyIntent());
 
     destroy(acc_kiosk);
     end(scenario, extensions, account, clock, policy);
@@ -403,7 +403,7 @@ fun test_take_expired() {
     acc_kiosk::new_take(&mut intent, &account, b"Degen".to_string(), ids.pop_back(), OWNER, version::current(), DummyIntent());
     account.add_intent(intent, version::current(), DummyIntent());
 
-    let mut expired = account.delete_expired_intent(key, &clock);
+    let mut expired = account.delete_expired_intent<_, Outcome>(key, &clock);
     acc_kiosk::delete_take(&mut expired);
     expired.destroy_empty();
 
@@ -422,7 +422,7 @@ fun test_list_expired() {
     acc_kiosk::new_list(&mut intent, &account, b"Degen".to_string(), ids.pop_back(), 100, version::current(), DummyIntent());
     account.add_intent(intent, version::current(), DummyIntent());
     
-    let mut expired = account.delete_expired_intent(key, &clock);
+    let mut expired = account.delete_expired_intent<_, Outcome>(key, &clock);
     acc_kiosk::delete_list(&mut expired);
     expired.destroy_empty();
 
@@ -475,7 +475,7 @@ fun test_error_delist_kiosk_doesnt_exist() {
     let (mut acc_kiosk, _) = init_account_kiosk_with_nfts(&mut account, &mut policy, 1, &mut scenario);
     
     let auth = account.new_auth(version::current(), DummyIntent());
-    acc_kiosk::delist<_, _, Nft>(auth, &mut account, &mut acc_kiosk, b"NotDegen".to_string(), @0x0.to_id());
+    acc_kiosk::delist<_, Nft>(auth, &mut account, &mut acc_kiosk, b"NotDegen".to_string(), @0x0.to_id());
     
     destroy(acc_kiosk);
     end(scenario, extensions, account, clock, policy);
@@ -517,8 +517,8 @@ fun test_error_do_take_wrong_receiver() {
     acc_kiosk::new_take(&mut intent, &account, b"Degen".to_string(), ids.pop_back(), ALICE, version::current(), DummyIntent());
     account.add_intent(intent, version::current(), DummyIntent());
 
-    let (mut executable, _) = account.execute_intent(key, &clock, version::current(), DummyIntent());
-    let request = acc_kiosk::do_take<_, _, Nft, DummyIntent>(
+    let (mut executable, _) = account.execute_intent<_, Outcome, _>(key, &clock, version::current(), DummyIntent());
+    let request = acc_kiosk::do_take<_, Outcome, Nft, _>(
         &mut executable, 
         &mut account, 
         &mut acc_kiosk,
@@ -554,8 +554,8 @@ fun test_error_do_take_from_wrong_account() {
     acc_kiosk::new_take(&mut intent, &account, b"Degen".to_string(), ids.pop_back(), OWNER, version::current(), DummyIntent());
     account2.add_intent(intent, version::current(), DummyIntent());
 
-    let (mut executable, _) = account2.execute_intent(key, &clock, version::current(), DummyIntent());
-    let request = acc_kiosk::do_take<_, _, Nft, DummyIntent>(
+    let (mut executable, _) = account2.execute_intent<_, Outcome, _>(key, &clock, version::current(), DummyIntent());
+    let request = acc_kiosk::do_take<_, Outcome, Nft, _>(
         &mut executable, 
         &mut account, 
         &mut acc_kiosk,
@@ -587,8 +587,8 @@ fun test_error_do_take_from_wrong_constructor_witness() {
     acc_kiosk::new_take(&mut intent, &account, b"Degen".to_string(), ids.pop_back(), OWNER, version::current(), DummyIntent());
     account.add_intent(intent, version::current(), DummyIntent());
 
-    let (mut executable, _) = account.execute_intent(key, &clock, version::current(), DummyIntent());
-    let request = acc_kiosk::do_take<_, _, Nft, WrongWitness>(
+    let (mut executable, _) = account.execute_intent<_, Outcome, _>(key, &clock, version::current(), DummyIntent());
+    let request = acc_kiosk::do_take<_, Outcome, Nft, _>(
         &mut executable, 
         &mut account, 
         &mut acc_kiosk,
@@ -619,8 +619,8 @@ fun test_error_do_take_from_not_dep() {
     acc_kiosk::new_take(&mut intent, &account, b"Degen".to_string(), ids.pop_back(), OWNER, version::current(), DummyIntent());
     account.add_intent(intent, version::current(), DummyIntent());
 
-    let (mut executable, _) = account.execute_intent(key, &clock, version::current(), DummyIntent());
-    let request = acc_kiosk::do_take<_, _, Nft, DummyIntent>(
+    let (mut executable, _) = account.execute_intent<_, Outcome, _>(key, &clock, version::current(), DummyIntent());
+    let request = acc_kiosk::do_take<_, Outcome, Nft, _>(
         &mut executable, 
         &mut account, 
         &mut acc_kiosk,
@@ -653,8 +653,8 @@ fun test_error_do_list_from_wrong_account() {
     acc_kiosk::new_take(&mut intent, &account, b"Degen".to_string(), ids.pop_back(), OWNER, version::current(), DummyIntent());
     account2.add_intent(intent, version::current(), DummyIntent());
 
-    let (mut executable, _) = account2.execute_intent(key, &clock, version::current(), DummyIntent());
-    acc_kiosk::do_list<_, _, Nft, DummyIntent>(
+    let (mut executable, _) = account2.execute_intent<_, Outcome, _>(key, &clock, version::current(), DummyIntent());
+    acc_kiosk::do_list<_, Outcome, Nft, _>(
         &mut executable, 
         &mut account, 
         &mut acc_kiosk,
@@ -678,8 +678,8 @@ fun test_error_do_list_from_wrong_constructor_witness() {
     acc_kiosk::new_take(&mut intent, &account, b"Degen".to_string(), ids.pop_back(), OWNER, version::current(), DummyIntent());
     account.add_intent(intent, version::current(), DummyIntent());
 
-    let (mut executable, _) = account.execute_intent(key, &clock, version::current(), DummyIntent());
-    acc_kiosk::do_list<_, _, Nft, WrongWitness>(
+    let (mut executable, _) = account.execute_intent<_, Outcome, _>(key, &clock, version::current(), DummyIntent());
+    acc_kiosk::do_list<_, Outcome, Nft, _>(
         &mut executable, 
         &mut account, 
         &mut acc_kiosk,
@@ -702,8 +702,8 @@ fun test_error_do_list_from_not_dep() {
     acc_kiosk::new_take(&mut intent, &account, b"Degen".to_string(), ids.pop_back(), OWNER, version::current(), DummyIntent());
     account.add_intent(intent, version::current(), DummyIntent());
 
-    let (mut executable, _) = account.execute_intent(key, &clock, version::current(), DummyIntent());
-    acc_kiosk::do_list<_, _, Nft, DummyIntent>(
+    let (mut executable, _) = account.execute_intent<_, Outcome, _>(key, &clock, version::current(), DummyIntent());
+    acc_kiosk::do_list<_, Outcome, Nft, _>(
         &mut executable, 
         &mut account, 
         &mut acc_kiosk,

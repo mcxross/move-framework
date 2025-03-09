@@ -32,7 +32,7 @@ public struct Outcome has copy, drop, store {}
 
 // === Helpers ===
 
-fun start(): (Scenario, Extensions, Account<Config, Outcome>, Clock) {
+fun start(): (Scenario, Extensions, Account<Config>, Clock) {
     let mut scenario = ts::begin(OWNER);
     // publish package
     extensions::init_for_testing(scenario.ctx());
@@ -53,7 +53,7 @@ fun start(): (Scenario, Extensions, Account<Config, Outcome>, Clock) {
     (scenario, extensions, account, clock)
 }
 
-fun end(scenario: Scenario, extensions: Extensions, account: Account<Config, Outcome>, clock: Clock) {
+fun end(scenario: Scenario, extensions: Extensions, account: Account<Config>, clock: Clock) {
     destroy(extensions);
     destroy(account);
     destroy(clock);
@@ -86,15 +86,15 @@ fun test_request_execute_borrow_cap() {
         scenario.ctx()
     );
 
-    let (mut executable, _) = account.execute_intent(key, &clock, version::current(), Witness());
-    assert!(access_control::has_lock<Config, Outcome, Cap>(&account));
+    let (mut executable, _) = account.execute_intent<_, Outcome, _>(key, &clock, version::current(), Witness());
+    assert!(access_control::has_lock<Config, Cap>(&account));
     let (borrow, cap) = access_control_intents::execute_borrow_cap<Config, Outcome, Cap>(&mut executable, &mut account);
-    assert!(!access_control::has_lock<Config, Outcome, Cap>(&account));
+    assert!(!access_control::has_lock<Config, Cap>(&account));
     // do something with the cap
-    access_control_intents::complete_borrow_cap(executable, &mut account, borrow, cap);
-    assert!(access_control::has_lock<Config, Outcome, Cap>(&account)); 
+    access_control_intents::complete_borrow_cap<_, Outcome, _>(executable, &mut account, borrow, cap);
+    assert!(access_control::has_lock<Config, Cap>(&account)); 
 
-    let mut expired = account.destroy_empty_intent(key);
+    let mut expired = account.destroy_empty_intent<_, Outcome>(key);
     access_control::delete_borrow<Cap>(&mut expired);
     expired.destroy_empty();
 

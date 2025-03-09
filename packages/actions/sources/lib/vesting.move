@@ -85,10 +85,10 @@ public fun claim<CoinType>(vesting: &mut Vesting<CoinType>, cap: &ClaimCap, cloc
 }
 
 // Authorized address can cancel the vesting.
-public fun cancel_payment<Config, Outcome, CoinType>(
+public fun cancel_payment<Config, CoinType>(
     auth: Auth,
     vesting: Vesting<CoinType>, 
-    account: &Account<Config, Outcome>,
+    account: &Account<Config>,
     ctx: &mut TxContext
 ) {
     account.verify(auth);
@@ -120,7 +120,7 @@ public fun destroy_cap(cap: ClaimCap) {
 /// Creates a VestAction and adds it to an intent.
 public fun new_vest<Config, Outcome, IW: drop>(
     intent: &mut Intent<Outcome>, 
-    account: &Account<Config, Outcome>,
+    account: &Account<Config>,
     start_timestamp: u64,
     end_timestamp: u64,
     recipient: address,
@@ -131,15 +131,15 @@ public fun new_vest<Config, Outcome, IW: drop>(
 }
 
 /// Processes a VestAction and creates a vesting.
-public fun do_vest<Config, Outcome, CoinType, IW: copy + drop>(
+public fun do_vest<Config, Outcome: store, CoinType, IW: copy + drop>(
     executable: &mut Executable, 
-    account: &mut Account<Config, Outcome>, 
+    account: &mut Account<Config>, 
     coin: Coin<CoinType>,
     version_witness: VersionWitness,
     intent_witness: IW,
     ctx: &mut TxContext
 ) {    
-    let action: &VestAction = account.process_action(executable, version_witness, intent_witness);
+    let action = account.process_action<_, Outcome, VestAction, _>(executable, version_witness, intent_witness);
 
     transfer::share_object(Vesting<CoinType> { 
         id: object::new(ctx), 

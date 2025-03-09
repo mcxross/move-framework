@@ -74,9 +74,9 @@ public struct RestrictAction has store {
 // === Public Functions ===
 
 /// Attaches the UpgradeCap as a Dynamic Object Field to the account.
-public fun lock_cap<Config, Outcome>(
+public fun lock_cap<Config>(
     auth: Auth,
-    account: &mut Account<Config, Outcome>,
+    account: &mut Account<Config>,
     cap: UpgradeCap,
     name: String, // name of the package
     delay_ms: u64, // minimum delay between proposal and execution
@@ -95,16 +95,16 @@ public fun lock_cap<Config, Outcome>(
 }
 
 /// Returns true if the account has an UpgradeCap for a given package name.
-public fun has_cap<Config, Outcome>(
-    account: &Account<Config, Outcome>, 
+public fun has_cap<Config>(
+    account: &Account<Config>, 
     name: String
 ): bool {
     account.has_managed_asset(UpgradeCapKey(name))
 }
 
 /// Returns the address of the package for a given package name.
-public fun get_cap_package<Config, Outcome>(
-    account: &Account<Config, Outcome>, 
+public fun get_cap_package<Config>(
+    account: &Account<Config>, 
     name: String
 ): address {
     let cap: &UpgradeCap = account.borrow_managed_asset(UpgradeCapKey(name), version::current());
@@ -112,8 +112,8 @@ public fun get_cap_package<Config, Outcome>(
 } 
 
 /// Returns the version of the UpgradeCap for a given package name.
-public fun get_cap_version<Config, Outcome>(
-    account: &Account<Config, Outcome>, 
+public fun get_cap_version<Config>(
+    account: &Account<Config>, 
     name: String
 ): u64 {
     let cap: &UpgradeCap = account.borrow_managed_asset(UpgradeCapKey(name), version::current());
@@ -121,8 +121,8 @@ public fun get_cap_version<Config, Outcome>(
 } 
 
 /// Returns the policy of the UpgradeCap for a given package name.
-public fun get_cap_policy<Config, Outcome>(
-    account: &Account<Config, Outcome>, 
+public fun get_cap_policy<Config>(
+    account: &Account<Config>, 
     name: String
 ): u8 {
     let cap: &UpgradeCap = account.borrow_managed_asset(UpgradeCapKey(name), version::current());
@@ -130,8 +130,8 @@ public fun get_cap_policy<Config, Outcome>(
 } 
 
 /// Returns the timelock of the UpgradeRules for a given package name.
-public fun get_time_delay<Config, Outcome>(
-    account: &Account<Config, Outcome>, 
+public fun get_time_delay<Config>(
+    account: &Account<Config>, 
     name: String
 ): u64 {
     let rules: &UpgradeRules = account.borrow_managed_data(UpgradeRulesKey(name), version::current());
@@ -139,16 +139,16 @@ public fun get_time_delay<Config, Outcome>(
 }
 
 /// Returns the map of package names to package addresses.
-public fun get_packages_info<Config, Outcome>(
-    account: &Account<Config, Outcome>
+public fun get_packages_info<Config>(
+    account: &Account<Config>
 ): &VecMap<String, address> {
     let index: &UpgradeIndex = account.borrow_managed_data(UpgradeIndexKey(), version::current());
     &index.packages_info
 }
 
 /// Returns true if the package is managed by the account.
-public fun is_package_managed<Config, Outcome>(
-    account: &Account<Config, Outcome>,
+public fun is_package_managed<Config>(
+    account: &Account<Config>,
     package_addr: address
 ): bool {
     if (!account.has_managed_data(UpgradeIndexKey())) return false;
@@ -165,8 +165,8 @@ public fun is_package_managed<Config, Outcome>(
 }
 
 /// Returns the address of the package for a given package name.
-public fun get_package_addr<Config, Outcome>(
-    account: &Account<Config, Outcome>,
+public fun get_package_addr<Config>(
+    account: &Account<Config>,
     package_name: String
 ): address {
     let index: &UpgradeIndex = account.borrow_managed_data(UpgradeIndexKey(), version::current());
@@ -174,8 +174,8 @@ public fun get_package_addr<Config, Outcome>(
 }
 
 /// Returns the package name for a given package address.
-public fun get_package_name<Config, Outcome>(
-    account: &Account<Config, Outcome>,
+public fun get_package_name<Config>(
+    account: &Account<Config>,
     package_addr: address
 ): String {
     let index: &UpgradeIndex = account.borrow_managed_data(UpgradeIndexKey(), version::current());
@@ -197,7 +197,7 @@ public fun get_package_name<Config, Outcome>(
 /// Creates a new UpgradeAction and adds it to an intent.
 public fun new_upgrade<Config, Outcome, IW: drop>(
     intent: &mut Intent<Outcome>, 
-    account: &Account<Config, Outcome>,
+    account: &Account<Config>,
     name: String,
     digest: vector<u8>, 
     clock: &Clock,
@@ -211,14 +211,14 @@ public fun new_upgrade<Config, Outcome, IW: drop>(
 }    
 
 /// Processes an UpgradeAction and returns a UpgradeTicket.
-public fun do_upgrade<Config, Outcome, IW: copy + drop>(
+public fun do_upgrade<Config, Outcome: store, IW: copy + drop>(
     executable: &mut Executable,
-    account: &mut Account<Config, Outcome>,
+    account: &mut Account<Config>,
     clock: &Clock,
     version_witness: VersionWitness,
     intent_witness: IW,
 ): UpgradeTicket {
-    let action: &UpgradeAction = account.process_action(executable, version_witness, intent_witness);
+    let action = account.process_action<_, Outcome, UpgradeAction, _>(executable, version_witness, intent_witness);
     let (name, digest, upgrade_time) = (action.name, action.digest, action.upgrade_time);
     assert!(upgrade_time <= clock.timestamp_ms(), EUpgradeTooEarly);
 
@@ -230,9 +230,9 @@ public fun do_upgrade<Config, Outcome, IW: copy + drop>(
 
 // must be called after UpgradeAction is processed, there cannot be any other action processed before
 /// Commits an upgrade and updates the index with the new package address.
-public fun confirm_upgrade<Config, Outcome, IW: copy + drop>(
+public fun confirm_upgrade<Config, Outcome: store, IW: copy + drop>(
     executable: &Executable,
-    account: &mut Account<Config, Outcome>,
+    account: &mut Account<Config>,
     receipt: UpgradeReceipt,
     version_witness: VersionWitness,
     intent_witness: IW,
@@ -243,7 +243,7 @@ public fun confirm_upgrade<Config, Outcome, IW: copy + drop>(
     executable.issuer().assert_is_account(account.addr());
 
     let key = executable.issuer().intent_key();
-    let name = account.intents().get(key).actions().borrow<_, UpgradeAction>(executable.action_idx() - 1).name;
+    let name = account.intents().get<Outcome>(key).actions().borrow<_, UpgradeAction>(executable.action_idx() - 1).name;
     let cap_mut: &mut UpgradeCap = account.borrow_managed_asset_mut(UpgradeCapKey(name), version_witness);
     cap_mut.commit_upgrade(receipt);
     let new_package_addr = cap_mut.package().to_address();
@@ -261,7 +261,7 @@ public fun delete_upgrade(expired: &mut Expired) {
 /// Creates a new RestrictAction and adds it to an intent.
 public fun new_restrict<Config, Outcome, IW: drop>(
     intent: &mut Intent<Outcome>, 
-    account: &Account<Config, Outcome>,
+    account: &Account<Config>,
     name: String,
     policy: u8, 
     version_witness: VersionWitness,
@@ -281,13 +281,13 @@ public fun new_restrict<Config, Outcome, IW: drop>(
 }    
 
 /// Processes a RestrictAction and updates the UpgradeCap policy.
-public fun do_restrict<Config, Outcome, IW: copy + drop>(
+public fun do_restrict<Config, Outcome: store, IW: copy + drop>(
     executable: &mut Executable,
-    account: &mut Account<Config, Outcome>,
+    account: &mut Account<Config>,
     version_witness: VersionWitness,
     intent_witness: IW,
 ) {
-    let action: &RestrictAction = account.process_action(executable, version_witness, intent_witness);
+    let action = account.process_action<_, Outcome, RestrictAction, _>(executable, version_witness, intent_witness);
     let (name, policy) = (action.name, action.policy);
 
     if (policy == package::additive_policy()) {
@@ -310,8 +310,8 @@ public fun delete_restrict(expired: &mut Expired) {
 // === Package Funtions ===
 
 /// Borrows the UpgradeCap for a given package address.
-public(package) fun borrow_cap<Config, Outcome>(
-    account: &Account<Config, Outcome>, 
+public(package) fun borrow_cap<Config>(
+    account: &Account<Config>, 
     package_addr: address
 ): &UpgradeCap {
     let name = get_package_name(account, package_addr);

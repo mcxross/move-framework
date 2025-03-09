@@ -48,19 +48,19 @@ public struct Borrowed<phantom Cap> {
 // === Public functions ===
 
 /// Authenticated user can lock a Cap, the Cap must have at least store ability.
-public fun lock_cap<Config, Outcome, Cap: key + store>(
+public fun lock_cap<Config, Cap: key + store>(
     auth: Auth,
-    account: &mut Account<Config, Outcome>,
+    account: &mut Account<Config>,
     cap: Cap,
 ) {
     account.verify(auth);
-    assert!(!has_lock<_, _, Cap>(account), EAlreadyLocked);
+    assert!(!has_lock<_, Cap>(account), EAlreadyLocked);
     account.add_managed_asset(CapKey<Cap>(), cap, version::current());
 }
 
 /// Checks if there is a Cap locked for a given type.
-public fun has_lock<Config, Outcome, Cap>(
-    account: &Account<Config, Outcome>
+public fun has_lock<Config, Cap>(
+    account: &Account<Config>
 ): bool {
     account.has_managed_asset(CapKey<Cap>())
 }
@@ -70,7 +70,7 @@ public fun has_lock<Config, Outcome, Cap>(
 /// Creates a BorrowAction and adds it to an intent.
 public fun new_borrow<Config, Outcome, Cap, IW: drop>(
     intent: &mut Intent<Outcome>, 
-    account: &Account<Config, Outcome>,
+    account: &Account<Config>,
     version_witness: VersionWitness,
     intent_witness: IW,    
 ) {
@@ -78,23 +78,23 @@ public fun new_borrow<Config, Outcome, Cap, IW: drop>(
 }
 
 /// Processes a BorrowAction and returns a Borrowed hot potato and the Cap.
-public fun do_borrow<Config, Outcome, Cap: key + store, IW: copy + drop>(
+public fun do_borrow<Config, Outcome: store, Cap: key + store, IW: copy + drop>(
     executable: &mut Executable, 
-    account: &mut Account<Config, Outcome>,
+    account: &mut Account<Config>,
     version_witness: VersionWitness,
     intent_witness: IW, 
 ): (Borrowed<Cap>, Cap) {
-    assert!(has_lock<_, _, Cap>(account), ENoLock);
+    assert!(has_lock<_, Cap>(account), ENoLock);
     // check to be sure this cap type has been approved
-    let _action: &BorrowAction<Cap> = account.process_action(executable, version_witness, intent_witness);
+    let _action = account.process_action<_, Outcome, BorrowAction<Cap>, _>(executable, version_witness, intent_witness);
     let cap = account.remove_managed_asset(CapKey<Cap>(), version_witness);
     
     (Borrowed<Cap> { account_addr: account.addr() }, cap)
 }
 
 /// Returns a Cap to the Account and destroys the hot potato.
-public fun return_borrowed<Config, Outcome, Cap: key + store>(
-    account: &mut Account<Config, Outcome>,
+public fun return_borrowed<Config, Cap: key + store>(
+    account: &mut Account<Config>,
     borrow: Borrowed<Cap>,
     cap: Cap,
     version_witness: VersionWitness,

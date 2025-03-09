@@ -39,7 +39,7 @@ public struct Outcome has copy, drop, store {}
 
 // === Helpers ===
 
-fun start(): (Scenario, Extensions, Account<Config, Outcome>, Clock) {
+fun start(): (Scenario, Extensions, Account<Config>, Clock) {
     let mut scenario = ts::begin(OWNER);
     // publish package
     extensions::init_for_testing(scenario.ctx());
@@ -59,7 +59,7 @@ fun start(): (Scenario, Extensions, Account<Config, Outcome>, Clock) {
     (scenario, extensions, account, clock)
 }
 
-fun end(scenario: Scenario, extensions: Extensions, account: Account<Config, Outcome>, clock: Clock) {
+fun end(scenario: Scenario, extensions: Extensions, account: Account<Config>, clock: Clock) {
     destroy(extensions);
     destroy(account);
     destroy(clock);
@@ -72,7 +72,7 @@ fun cap(scenario: &mut Scenario): Cap {
 
 fun create_dummy_intent(
     scenario: &mut Scenario,
-    account: &mut Account<Config, Outcome>, 
+    account: &mut Account<Config>, 
 ): Intent<Outcome> {
     account.create_intent(
         b"dummy".to_string(), 
@@ -93,10 +93,10 @@ fun create_dummy_intent(
 fun test_lock_cap() {
     let (mut scenario, extensions, mut account, clock) = start();
 
-    assert!(!access_control::has_lock<Config, Outcome, Cap>(&account));
+    assert!(!access_control::has_lock<Config, Cap>(&account));
     let auth = account.new_auth(version::current(), Witness());
     access_control::lock_cap(auth, &mut account, cap(&mut scenario));
-    assert!(access_control::has_lock<Config, Outcome, Cap>(&account));
+    assert!(access_control::has_lock<Config, Cap>(&account));
 
     end(scenario, extensions, account, clock);
 }
@@ -113,16 +113,16 @@ fun test_access_flow() {
     access_control::new_borrow<Config, Outcome, Cap, DummyIntent>(&mut intent, &account, version::current(), DummyIntent());
     account.add_intent(intent, version::current(), DummyIntent());
 
-    let (mut executable, _) = account.execute_intent(key, &clock, version::current(), Witness());
+    let (mut executable, _) = account.execute_intent<_, Outcome, _>(key, &clock, version::current(), Witness());
 
-    assert!(access_control::has_lock<Config, Outcome, Cap>(&account));
+    assert!(access_control::has_lock<Config, Cap>(&account));
     let (borrow, cap) = access_control::do_borrow<Config, Outcome, Cap, DummyIntent>(&mut executable, &mut account, version::current(), DummyIntent());
-    assert!(!access_control::has_lock<Config, Outcome, Cap>(&account));
+    assert!(!access_control::has_lock<Config, Cap>(&account));
     // do something with the cap
     access_control::return_borrowed(&mut account, borrow, cap, version::current());
-    assert!(access_control::has_lock<Config, Outcome, Cap>(&account));
+    assert!(access_control::has_lock<Config, Cap>(&account));
 
-    account.confirm_execution(executable, version::current(), DummyIntent());
+    account.confirm_execution<_, Outcome, _>(executable, version::current(), DummyIntent());
 
     end(scenario, extensions, account, clock);
 }
@@ -137,7 +137,7 @@ fun test_access_expired() {
     access_control::new_borrow<Config, Outcome, Cap, DummyIntent>(&mut intent, &account, version::current(), DummyIntent());
     account.add_intent(intent, version::current(), DummyIntent());
     
-    let mut expired = account.delete_expired_intent(key, &clock);
+    let mut expired = account.delete_expired_intent<_, Outcome>(key, &clock);
     access_control::delete_borrow<Cap>(&mut expired);
     expired.destroy_empty();
 
@@ -167,7 +167,7 @@ fun test_error_access_no_lock() {
     access_control::new_borrow<Config, Outcome, Cap, DummyIntent>(&mut intent, &account, version::current(), DummyIntent());
     account.add_intent(intent, version::current(), DummyIntent());
 
-    let (mut executable, _) = account.execute_intent(key, &clock, version::current(), Witness());
+    let (mut executable, _) = account.execute_intent<_, Outcome, _>(key, &clock, version::current(), Witness());
 
     let (borrow, cap) = access_control::do_borrow<Config, Outcome, Cap, DummyIntent>(&mut executable, &mut account, version::current(), DummyIntent());
 
@@ -189,14 +189,14 @@ fun test_error_return_to_wrong_account() {
     access_control::new_borrow<Config, Outcome, Cap, DummyIntent>(&mut intent, &account, version::current(), DummyIntent());
     account.add_intent(intent, version::current(), DummyIntent());
 
-    let (mut executable, _) = account.execute_intent(key, &clock, version::current(), Witness());
+    let (mut executable, _) = account.execute_intent<_, Outcome, _>(key, &clock, version::current(), Witness());
 
     let (borrow, cap) = access_control::do_borrow<Config, Outcome, Cap, DummyIntent>(&mut executable, &mut account, version::current(), DummyIntent());
     // create other account
-    let mut account2 = account::new<Config, Outcome>(&extensions, Config {}, false, vector[b"AccountProtocol".to_string()], vector[@account_protocol], vector[1], scenario.ctx());
+    let mut account2 = account::new(&extensions, Config {}, false, vector[b"AccountProtocol".to_string()], vector[@account_protocol], vector[1], scenario.ctx());
     account2.deps_mut_for_testing().add_for_testing(&extensions, b"AccountActions".to_string(), @account_actions, 1);
     access_control::return_borrowed(&mut account2, borrow, cap, version::current());
-    account.confirm_execution(executable, version::current(), DummyIntent());
+    account.confirm_execution<_, Outcome, _>(executable, version::current(), DummyIntent());
 
     destroy(account2);
     end(scenario, extensions, account, clock);
@@ -216,7 +216,7 @@ fun test_error_do_access_from_wrong_account() {
     access_control::new_borrow<Config, Outcome, Cap, DummyIntent>(&mut intent, &account, version::current(), DummyIntent());
     account.add_intent(intent, version::current(), DummyIntent());
 
-    let (mut executable, _) = account.execute_intent(key, &clock, version::current(), Witness());
+    let (mut executable, _) = account.execute_intent<_, Outcome, _>(key, &clock, version::current(), Witness());
     // create other account and lock same type of cap
     let mut account2 = account::new(&extensions, Config {}, false, vector[b"AccountProtocol".to_string()], vector[@account_protocol], vector[1], scenario.ctx());
     account2.deps_mut_for_testing().add_for_testing(&extensions, b"AccountActions".to_string(), @account_actions, 1);
@@ -244,7 +244,7 @@ fun test_error_do_access_from_wrong_constructor_witness() {
     access_control::new_borrow<Config, Outcome, Cap, DummyIntent>(&mut intent, &account, version::current(), DummyIntent());
     account.add_intent(intent, version::current(), DummyIntent());
 
-    let (mut executable, _) = account.execute_intent(key, &clock, version::current(), Witness());
+    let (mut executable, _) = account.execute_intent<_, Outcome, _>(key, &clock, version::current(), Witness());
     
     let (borrow, cap) = access_control::do_borrow<Config, Outcome, Cap, WrongWitness>(&mut executable, &mut account, version::current(), WrongWitness());
 
@@ -266,7 +266,7 @@ fun test_error_do_access_from_not_dep() {
     access_control::new_borrow<Config, Outcome, Cap, DummyIntent>(&mut intent, &account, version::current(), DummyIntent());
     account.add_intent(intent, version::current(), DummyIntent());
 
-    let (mut executable, _) = account.execute_intent(key, &clock, version::current(), Witness());
+    let (mut executable, _) = account.execute_intent<_, Outcome, _>(key, &clock, version::current(), Witness());
     
     let (borrow, cap) = access_control::do_borrow<Config, Outcome, Cap, DummyIntent>(&mut executable, &mut account, version_witness::new_for_testing(@0xFA153), DummyIntent());
 
