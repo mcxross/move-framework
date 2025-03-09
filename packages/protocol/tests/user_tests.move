@@ -24,7 +24,6 @@ public struct Witness() has drop;
 public struct DummyIntent() has drop;
 
 public struct DummyConfig has copy, drop, store {}
-public struct DummyOutcome has copy, drop, store {}
 
 // === Helpers ===
 
@@ -52,7 +51,7 @@ fun end(scenario: Scenario, registry: Registry, extensions: Extensions) {
     ts::end(scenario);
 }
 
-fun create_account(extensions: &Extensions, ctx: &mut TxContext): Account<DummyConfig, DummyOutcome> {
+fun create_account(extensions: &Extensions, ctx: &mut TxContext): Account<DummyConfig> {
     account::new(extensions, DummyConfig {}, false, vector[], vector[], vector[], ctx)
 }
 

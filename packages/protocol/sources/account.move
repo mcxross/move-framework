@@ -59,7 +59,7 @@ const EActionsRemaining: u64 = 6;
 public struct ACCOUNT has drop {}
 
 /// Shared multisig Account object.
-public struct Account<Config, Outcome> has key, store {
+public struct Account<Config> has key, store {
     id: UID,
     // arbitrary data that can be proposed and added by members
     // first field is a human readable name to differentiate the multisig accounts
@@ -68,7 +68,7 @@ public struct Account<Config, Outcome> has key, store {
     // idx 0: account_protocol, idx 1: account_actions optionally
     deps: Deps,
     // open intents, key should be a unique descriptive name
-    intents: Intents<Outcome>,
+    intents: Intents,
     // config can be anything (e.g. Multisig, coin-based DAO, etc.)
     config: Config,
 }
@@ -86,7 +86,7 @@ fun init(otw: ACCOUNT, ctx: &mut TxContext) {
 }
 
 /// Creates a new Account object, called from a config module defining a new account type.
-public fun new<Config, Outcome>(
+public fun new<Config>(
     extensions: &Extensions,
     config: Config, 
     unverified_deps_allowed: bool,
@@ -94,24 +94,24 @@ public fun new<Config, Outcome>(
     addresses: vector<address>,
     versions: vector<u64>,
     ctx: &mut TxContext
-): Account<Config, Outcome> {
-    Account<Config, Outcome> { 
+): Account<Config> {
+    Account<Config> { 
         id: object::new(ctx),
         metadata: metadata::empty(),
         deps: deps::new(extensions, unverified_deps_allowed, names, addresses, versions),
-        intents: intents::empty(),
+        intents: intents::empty(ctx),
         config,
     }
 }
 
 /// Helper function to transfer an object to the account.
-public fun keep<Config, Outcome, T: key + store>(account: &Account<Config, Outcome>, obj: T) {
+public fun keep<Config, T: key + store>(account: &Account<Config>, obj: T) {
     transfer::public_transfer(obj, account.addr());
 }
 
 /// Unpacks and verifies the Auth matches the account.
-public fun verify<Config, Outcome>(
-    account: &Account<Config, Outcome>,
+public fun verify<Config>(
+    account: &Account<Config>,
     auth: Auth,
 ) {
     let Auth { account_addr } = auth;
@@ -135,7 +135,7 @@ public fun verify<Config, Outcome>(
 
 /// Creates a new intent that must be constructed in another module.
 public fun create_intent<Config, Outcome, IW: copy + drop>(
-    account: &mut Account<Config, Outcome>, 
+    account: &mut Account<Config>, 
     key: String, // intent key
     description: String, // optional description
     execution_times: vector<u64>, // multiple timestamps in ms for recurrent intents (ascending order)
@@ -167,7 +167,7 @@ public fun create_intent<Config, Outcome, IW: copy + drop>(
 
 /// Adds an action to the intent.
 public fun add_action<Config, Outcome, Action: store, IW: drop>(
-    account: &Account<Config, Outcome>, 
+    account: &Account<Config>, 
     intent: &mut Intent<Outcome>,
     action: Action,
     version_witness: VersionWitness,
@@ -184,8 +184,8 @@ public fun add_action<Config, Outcome, Action: store, IW: drop>(
 }
 
 /// Adds an intent to the account.
-public fun add_intent<Config, Outcome, IW: drop>(
-    account: &mut Account<Config, Outcome>, 
+public fun add_intent<Config, Outcome: store, IW: drop>(
+    account: &mut Account<Config>, 
     intent: Intent<Outcome>, 
     version_witness: VersionWitness,
     intent_witness: IW,
@@ -203,8 +203,8 @@ public fun add_intent<Config, Outcome, IW: drop>(
 // Action lib functions - called in action modules
 
 /// Increases the action index and returns the action.
-public fun process_action<Config, Outcome, Action: store, IW: drop>(
-    account: &Account<Config, Outcome>, 
+public fun process_action<Config, Outcome: store, Action: store, IW: drop>(
+    account: &Account<Config>, 
     executable: &mut Executable,
     version_witness: VersionWitness,
     intent_witness: IW,
@@ -218,12 +218,12 @@ public fun process_action<Config, Outcome, Action: store, IW: drop>(
     
     let key = executable.issuer().intent_key();
     let action_idx = executable.next_action();
-    account.intents.get(key).actions().borrow(action_idx)
+    account.intents.get<Outcome>(key).actions().borrow(action_idx)
 }
 
 /// Verifies all actions have been processed and destroys the executable.
-public fun confirm_execution<Config, Outcome, IW: drop>(
-    account: &Account<Config, Outcome>, 
+public fun confirm_execution<Config, Outcome: store, IW: drop>(
+    account: &Account<Config>, 
     executable: Executable,
     version_witness: VersionWitness,
     intent_witness: IW,
@@ -235,30 +235,30 @@ public fun confirm_execution<Config, Outcome, IW: drop>(
     // ensures the intent is created by the same package that creates the action
     executable.issuer().assert_is_intent(intent_witness);
 
-    let intent = account.intents.get(executable.issuer().intent_key());
+    let intent = account.intents.get<Outcome>(executable.issuer().intent_key());
     assert!(executable.action_idx() == intent.actions().length(), EActionsRemaining);
     executable.destroy();
 }
 
 /// Destroys an intent if it has no remaining execution.
 /// Expired needs to be emptied by deleting each action in the bag within their own module.
-public fun destroy_empty_intent<Config, Outcome: drop>(
-    account: &mut Account<Config, Outcome>, 
+public fun destroy_empty_intent<Config, Outcome: store + drop>(
+    account: &mut Account<Config>, 
     key: String, 
 ): Expired {
-    assert!(account.intents.get(key).execution_times().is_empty(), ECantBeRemovedYet);
-    account.intents.destroy(key)
+    assert!(account.intents.get<Outcome>(key).execution_times().is_empty(), ECantBeRemovedYet);
+    account.intents.destroy_intent<Outcome>(key)
 }
 
 /// Destroys an intent if it has expired.
 /// Expired needs to be emptied by deleting each action in the bag within their own module.
-public fun delete_expired_intent<Config, Outcome: drop>(
-    account: &mut Account<Config, Outcome>, 
+public fun delete_expired_intent<Config, Outcome: store + drop>(
+    account: &mut Account<Config>, 
     key: String, 
     clock: &Clock,
 ): Expired {
-    assert!(clock.timestamp_ms() >= account.intents.get(key).expiration_time(), EHasntExpired);
-    account.intents.destroy(key)
+    assert!(clock.timestamp_ms() >= account.intents.get<Outcome>(key).expiration_time(), EHasntExpired);
+    account.intents.destroy_intent<Outcome>(key)
 }
 
 /// Managed data and assets:
@@ -267,8 +267,8 @@ public fun delete_expired_intent<Config, Outcome: drop>(
 /// Keys must be custom types defined in the same module where the function is implemented.
 
 /// Adds a managed data struct to the account.
-public fun add_managed_data<Config, Outcome, K: copy + drop + store, Data: store>(
-    account: &mut Account<Config, Outcome>, 
+public fun add_managed_data<Config, K: copy + drop + store, Data: store>(
+    account: &mut Account<Config>, 
     key: K, 
     data: Data,
     version_witness: VersionWitness,
@@ -279,16 +279,16 @@ public fun add_managed_data<Config, Outcome, K: copy + drop + store, Data: store
 }
 
 /// Checks if a managed data struct exists in the account.
-public fun has_managed_data<Config, Outcome, K: copy + drop + store>(
-    account: &Account<Config, Outcome>, 
+public fun has_managed_data<Config, K: copy + drop + store>(
+    account: &Account<Config>, 
     key: K, 
 ): bool {
     df::exists_(&account.id, key)
 }
 
 /// Borrows a managed data struct from the account.
-public fun borrow_managed_data<Config, Outcome, K: copy + drop + store, Data: store>(
-    account: &Account<Config, Outcome>,
+public fun borrow_managed_data<Config, K: copy + drop + store, Data: store>(
+    account: &Account<Config>,
     key: K, 
     version_witness: VersionWitness,
 ): &Data {
@@ -298,8 +298,8 @@ public fun borrow_managed_data<Config, Outcome, K: copy + drop + store, Data: st
 }
 
 /// Borrows a managed data struct mutably from the account.
-public fun borrow_managed_data_mut<Config, Outcome, K: copy + drop + store, Data: store>(
-    account: &mut Account<Config, Outcome>, 
+public fun borrow_managed_data_mut<Config, K: copy + drop + store, Data: store>(
+    account: &mut Account<Config>, 
     key: K, 
     version_witness: VersionWitness,
 ): &mut Data {
@@ -309,8 +309,8 @@ public fun borrow_managed_data_mut<Config, Outcome, K: copy + drop + store, Data
 }
 
 /// Removes a managed data struct from the account.
-public fun remove_managed_data<Config, Outcome, K: copy + drop + store, A: store>(
-    account: &mut Account<Config, Outcome>, 
+public fun remove_managed_data<Config, K: copy + drop + store, A: store>(
+    account: &mut Account<Config>, 
     key: K, 
     version_witness: VersionWitness,
 ): A {
@@ -320,8 +320,8 @@ public fun remove_managed_data<Config, Outcome, K: copy + drop + store, A: store
 }
 
 /// Adds a managed object to the account.
-public fun add_managed_asset<Config, Outcome, K: copy + drop + store, Asset: key + store>(
-    account: &mut Account<Config, Outcome>, 
+public fun add_managed_asset<Config, K: copy + drop + store, Asset: key + store>(
+    account: &mut Account<Config>, 
     key: K, 
     asset: Asset,
     version_witness: VersionWitness,
@@ -332,16 +332,16 @@ public fun add_managed_asset<Config, Outcome, K: copy + drop + store, Asset: key
 }
 
 /// Checks if a managed object exists in the account.
-public fun has_managed_asset<Config, Outcome, K: copy + drop + store>(
-    account: &Account<Config, Outcome>, 
+public fun has_managed_asset<Config, K: copy + drop + store>(
+    account: &Account<Config>, 
     key: K, 
 ): bool {
     dof::exists_(&account.id, key)
 }
 
 /// Borrows a managed object from the account.
-public fun borrow_managed_asset<Config, Outcome, K: copy + drop + store, Asset: key + store>(
-    account: &Account<Config, Outcome>,
+public fun borrow_managed_asset<Config, K: copy + drop + store, Asset: key + store>(
+    account: &Account<Config>,
     key: K, 
     version_witness: VersionWitness,
 ): &Asset {
@@ -351,8 +351,8 @@ public fun borrow_managed_asset<Config, Outcome, K: copy + drop + store, Asset: 
 }
 
 /// Borrows a managed object mutably from the account.
-public fun borrow_managed_asset_mut<Config, Outcome, K: copy + drop + store, Asset: key + store>(
-    account: &mut Account<Config, Outcome>, 
+public fun borrow_managed_asset_mut<Config, K: copy + drop + store, Asset: key + store>(
+    account: &mut Account<Config>, 
     key: K, 
     version_witness: VersionWitness,
 ): &mut Asset {
@@ -362,8 +362,8 @@ public fun borrow_managed_asset_mut<Config, Outcome, K: copy + drop + store, Ass
 }
 
 /// Removes a managed object from the account.
-public fun remove_managed_asset<Config, Outcome, K: copy + drop + store, Asset: key + store>(
-    account: &mut Account<Config, Outcome>, 
+public fun remove_managed_asset<Config, K: copy + drop + store, Asset: key + store>(
+    account: &mut Account<Config>, 
     key: K, 
     version_witness: VersionWitness,
 ): Asset {
@@ -379,8 +379,8 @@ public fun remove_managed_asset<Config, Outcome, K: copy + drop + store, Asset: 
 /// They must be implemented in the module that defines the config of the account, which must be a dependency of the account.
 
 /// Returns an Auth object that can be used to call certain functions with the account.
-public fun new_auth<Config, Outcome, CW: drop>(
-    account: &Account<Config, Outcome>,
+public fun new_auth<Config, CW: drop>(
+    account: &Account<Config>,
     version_witness: VersionWitness,
     config_witness: CW,
 ): Auth {
@@ -391,8 +391,8 @@ public fun new_auth<Config, Outcome, CW: drop>(
 }
 
 /// Returns an Executable with the Intent Outcome that must be validated in the config module.
-public fun execute_intent<Config, Outcome: copy, CW: drop>(
-    account: &mut Account<Config, Outcome>,
+public fun execute_intent<Config, Outcome: store + copy, CW: drop>(
+    account: &mut Account<Config>,
     key: String, 
     clock: &Clock,
     version_witness: VersionWitness,
@@ -401,7 +401,7 @@ public fun execute_intent<Config, Outcome: copy, CW: drop>(
     account.deps().check(version_witness);
     account.assert_is_config_module(config_witness);
 
-    let intent = account.intents.get_mut(key);
+    let intent = account.intents.get_mut<Outcome>(key);
     let time = intent.pop_front_execution_time();
     assert!(clock.timestamp_ms() >= time, ECantBeExecutedYet);
 
@@ -412,11 +412,11 @@ public fun execute_intent<Config, Outcome: copy, CW: drop>(
 }
 
 /// Returns a mutable reference to the intents of the account.
-public fun intents_mut<Config, Outcome, CW: drop>(
-    account: &mut Account<Config, Outcome>, 
+public fun intents_mut<Config, CW: drop>(
+    account: &mut Account<Config>, 
     version_witness: VersionWitness,
     config_witness: CW,
-): &mut Intents<Outcome> {
+): &mut Intents {
     account.deps().check(version_witness);
     account.assert_is_config_module(config_witness);
 
@@ -424,8 +424,8 @@ public fun intents_mut<Config, Outcome, CW: drop>(
 }
 
 /// Returns a mutable reference to the config of the account.
-public fun config_mut<Config, Outcome, CW: drop>(
-    account: &mut Account<Config, Outcome>, 
+public fun config_mut<Config, CW: drop>(
+    account: &mut Account<Config>, 
     version_witness: VersionWitness,
     config_witness: CW,
 ): &mut Config {
@@ -438,35 +438,35 @@ public fun config_mut<Config, Outcome, CW: drop>(
 // === View functions ===
 
 /// Returns the address of the account.
-public fun addr<Config, Outcome>(account: &Account<Config, Outcome>): address {
+public fun addr<Config>(account: &Account<Config>): address {
     account.id.uid_to_inner().id_to_address()
 }
 
 /// Returns the metadata of the account.
-public fun metadata<Config, Outcome>(account: &Account<Config, Outcome>): &Metadata {
+public fun metadata<Config>(account: &Account<Config>): &Metadata {
     &account.metadata
 }
 
 /// Returns the dependencies of the account.
-public fun deps<Config, Outcome>(account: &Account<Config, Outcome>): &Deps {
+public fun deps<Config>(account: &Account<Config>): &Deps {
     &account.deps
 }
 
 /// Returns the intents of the account.
-public fun intents<Config, Outcome>(account: &Account<Config, Outcome>): &Intents<Outcome> {
+public fun intents<Config>(account: &Account<Config>): &Intents {
     &account.intents
 }
 
 /// Returns the config of the account.
-public fun config<Config, Outcome>(account: &Account<Config, Outcome>): &Config {
+public fun config<Config>(account: &Account<Config>): &Config {
     &account.config
 }
 
 // === Package functions ===
 
 /// Returns a mutable reference to the metadata of the account.
-public(package) fun metadata_mut<Config, Outcome>(
-    account: &mut Account<Config, Outcome>, 
+public(package) fun metadata_mut<Config>(
+    account: &mut Account<Config>, 
     version_witness: VersionWitness,
 ): &mut Metadata {
     // ensures the package address is a dependency for this account
@@ -475,8 +475,8 @@ public(package) fun metadata_mut<Config, Outcome>(
 }
 
 /// Returns a mutable reference to the dependencies of the account.
-public(package) fun deps_mut<Config, Outcome>(
-    account: &mut Account<Config, Outcome>, 
+public(package) fun deps_mut<Config>(
+    account: &mut Account<Config>, 
     version_witness: VersionWitness,
 ): &mut Deps {
     // ensures the package address is a dependency for this account
@@ -485,32 +485,32 @@ public(package) fun deps_mut<Config, Outcome>(
 }
 
 /// Receives an object from an account, only used in owned action lib module.
-public(package) fun receive<Config, Outcome, T: key + store>(
-    account: &mut Account<Config, Outcome>, 
+public(package) fun receive<Config, T: key + store>(
+    account: &mut Account<Config>, 
     receiving: Receiving<T>,
 ): T {
     transfer::public_receive(&mut account.id, receiving)
 }
 
 /// Locks an object in the account, preventing it to be used in another intent.
-public(package) fun lock_object<Config, Outcome>(
-    account: &mut Account<Config, Outcome>, 
+public(package) fun lock_object<Config>(
+    account: &mut Account<Config>, 
     id: ID,
 ) {
     account.intents.lock(id);
 }
 
 /// Unlocks an object in the account, allowing it to be used in another intent.
-public(package) fun unlock_object<Config, Outcome>(
-    account: &mut Account<Config, Outcome>, 
+public(package) fun unlock_object<Config>(
+    account: &mut Account<Config>, 
     id: ID,
 ) {
     account.intents.unlock(id);
 }
 
 /// Asserts that the function is called from the module defining the config of the account.
-public(package) fun assert_is_config_module<Config, Outcome, CW: drop>(
-    _account: &Account<Config, Outcome>, 
+public(package) fun assert_is_config_module<Config, CW: drop>(
+    _account: &Account<Config>, 
     _config_witness: CW
 ) {
     let account_type = type_name::get<Config>();
@@ -538,6 +538,6 @@ public fun not_config_witness(): Witness {
 }
 
 #[test_only]
-public fun deps_mut_for_testing<Config, Outcome>(account: &mut Account<Config, Outcome>): &mut Deps {
+public fun deps_mut_for_testing<Config>(account: &mut Account<Config>): &mut Deps {
     &mut account.deps
 }

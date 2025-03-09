@@ -28,7 +28,7 @@ public struct Outcome has copy, drop, store {}
 
 // === Helpers ===
 
-fun start(): (Scenario, Extensions, Account<Config, Outcome>, Clock) {
+fun start(): (Scenario, Extensions, Account<Config>, Clock) {
     let mut scenario = ts::begin(OWNER);
     // publish package
     extensions::init_for_testing(scenario.ctx());
@@ -51,7 +51,7 @@ fun start(): (Scenario, Extensions, Account<Config, Outcome>, Clock) {
     (scenario, extensions, account, clock)
 }
 
-fun end(scenario: Scenario, extensions: Extensions, account: Account<Config, Outcome>, clock: Clock) {
+fun end(scenario: Scenario, extensions: Extensions, account: Account<Config>, clock: Clock) {
     destroy(extensions);
     destroy(account);
     destroy(clock);
@@ -99,10 +99,10 @@ fun test_request_execute_config_deps() {
     );
     assert!(!account.deps().contains_name(b"External".to_string()));
 
-    let (executable, _) = account.execute_intent(key, &clock, version::current(), Witness());
-    config::execute_config_deps(executable, &mut account);
+    let (executable, _) = account.execute_intent<Config, Outcome, Witness>(key, &clock, version::current(), Witness());
+    config::execute_config_deps<Config, Outcome>(executable, &mut account);
 
-    let mut expired = account.destroy_empty_intent(key);
+    let mut expired = account.destroy_empty_intent<Config, Outcome>(key);
     config::delete_config_deps(&mut expired);
     expired.destroy_empty();
     
@@ -135,7 +135,7 @@ fun test_config_deps_expired() {
         scenario.ctx()
     );
     
-    let mut expired = account.delete_expired_intent(key, &clock);
+    let mut expired = account.delete_expired_intent<Config, Outcome>(key, &clock);
     config::delete_config_deps(&mut expired);
     expired.destroy_empty();
 
@@ -159,10 +159,10 @@ fun test_request_execute_toggle_unverified_allowed() {
         scenario.ctx()
     );
 
-    let (executable, _) = account.execute_intent(key, &clock, version::current(), Witness());
-    config::execute_toggle_unverified_allowed(executable, &mut account);
+    let (executable, _) = account.execute_intent<Config, Outcome, Witness>(key, &clock, version::current(), Witness());
+    config::execute_toggle_unverified_allowed<Config, Outcome>(executable, &mut account);
 
-    let mut expired = account.destroy_empty_intent(key);
+    let mut expired = account.destroy_empty_intent<Config, Outcome>(key);
     config::delete_toggle_unverified_allowed(&mut expired);
     expired.destroy_empty();
     
@@ -189,7 +189,7 @@ fun test_toggle_unverified_allowed_expired() {
         scenario.ctx()
     );
     
-    let mut expired = account.delete_expired_intent(key, &clock);
+    let mut expired = account.delete_expired_intent<Config, Outcome>(key, &clock);
     config::delete_toggle_unverified_allowed(&mut expired);
     expired.destroy_empty();
 

@@ -41,7 +41,7 @@ public struct Outcome has copy, drop, store {}
 
 // === Helpers ===
 
-fun start(): (Scenario, Extensions, Account<Config, Outcome>) {
+fun start(): (Scenario, Extensions, Account<Config>) {
     let mut scenario = ts::begin(OWNER);
     // publish package
     extensions::init_for_testing(scenario.ctx());
@@ -61,7 +61,7 @@ fun start(): (Scenario, Extensions, Account<Config, Outcome>) {
     (scenario, extensions, account)
 }
 
-fun end(scenario: Scenario, extensions: Extensions, account: Account<Config, Outcome>) {
+fun end(scenario: Scenario, extensions: Extensions, account: Account<Config>) {
     destroy(extensions);
     destroy(account);
     ts::end(scenario);
@@ -123,12 +123,12 @@ fun test_intent_create_execute_flow() {
     account.add_action(&mut intent, Struct { inner: true }, version::current(), DummyIntent());
     account.add_intent(intent, version::current(), DummyIntent());
 
-    let (mut executable, outcome) = account.execute_intent(b"one".to_string(), &clock, version::current(), Witness());
-    let _: &Struct = account.process_action(&mut executable, version::current(), DummyIntent());
-    assert!(account.intents().get(b"one".to_string()).execution_times().length() == 0);
-    account.confirm_execution(executable, version::current(), DummyIntent());
+    let (mut executable, outcome) = account.execute_intent<Config, Outcome, Witness>(b"one".to_string(), &clock, version::current(), Witness());
+    account.process_action<Config, Outcome, Struct, _>(&mut executable, version::current(), DummyIntent());
+    assert!(account.intents().get<Outcome>(b"one".to_string()).execution_times().length() == 0);
+    account.confirm_execution<Config, Outcome, DummyIntent>(executable, version::current(), DummyIntent());
     assert!(account.intents().length() == 1);
-    let expired = account.destroy_empty_intent(b"one".to_string());
+    let expired = account.destroy_empty_intent<Config, Outcome>(b"one".to_string());
     assert!(account.intents().length() == 0);
 
     destroy(expired);
@@ -156,7 +156,7 @@ fun test_anyone_can_execute_intent() {
     account.add_intent(intent, version::current(), DummyIntent());
 
     scenario.next_tx(ALICE);
-    let (executable, outcome) = account.execute_intent(b"one".to_string(), &clock, version::current(), Witness());
+    let (executable, outcome) = account.execute_intent<Config, Outcome, Witness>(b"one".to_string(), &clock, version::current(), Witness());
     
     destroy(outcome);
     destroy(executable);
@@ -184,7 +184,7 @@ fun test_intent_delete_flow() {
     account.add_intent(intent, version::current(), DummyIntent());
 
     assert!(account.intents().length() == 1);
-    let expired = account.delete_expired_intent(b"one".to_string(), &clock);
+    let expired = account.delete_expired_intent<Config, Outcome>(b"one".to_string(), &clock);
     assert!(account.intents().length() == 0);
     expired.destroy_empty();
     
@@ -265,7 +265,7 @@ fun test_error_cannot_verify_wrong_account() {
     let (mut scenario, extensions, account) = start();
     
     let auth = account.new_auth(version::current(), Witness());
-    let account2 = account::new<Config, Outcome>(&extensions, Config {}, false, vector[b"AccountProtocol".to_string()], vector[@account_protocol], vector[1], scenario.ctx());
+    let account2 = account::new<Config>(&extensions, Config {}, false, vector[b"AccountProtocol".to_string()], vector[@account_protocol], vector[1], scenario.ctx());
     account2.verify(auth);
 
     destroy(account2);
@@ -316,7 +316,7 @@ fun test_error_cannot_add_action_from_not_dependent_package() {
 #[test, expected_failure(abort_code = issuer::EWrongAccount)]
 fun test_error_cannot_add_action_with_wrong_account() {
     let (mut scenario, extensions, mut account) = start();
-    let account2 = account::new<Config, Outcome>(&extensions, Config {}, false, vector[b"AccountProtocol".to_string()], vector[@account_protocol], vector[1], scenario.ctx());
+    let account2 = account::new<Config>(&extensions, Config {}, false, vector[b"AccountProtocol".to_string()], vector[@account_protocol], vector[1], scenario.ctx());
 
     let mut intent = account.create_intent(
         b"one".to_string(), 
@@ -380,7 +380,7 @@ fun test_error_cannot_add_intent_from_not_dependent_package() {
 #[test, expected_failure(abort_code = issuer::EWrongAccount)]
 fun test_error_cannot_add_intent_with_wrong_account() {
     let (mut scenario, extensions, mut account) = start();
-    let mut account2 = account::new<Config, Outcome>(&extensions, Config {}, false, vector[b"AccountProtocol".to_string()], vector[@account_protocol], vector[1], scenario.ctx());
+    let mut account2 = account::new<Config>(&extensions, Config {}, false, vector[b"AccountProtocol".to_string()], vector[@account_protocol], vector[1], scenario.ctx());
 
     let intent = account.create_intent(
         b"one".to_string(), 
@@ -438,8 +438,8 @@ fun test_error_cannot_process_action_from_not_dependent_package() {
     account.add_action(&mut intent, true, version::current(), DummyIntent());
     account.add_intent(intent, version::current(), DummyIntent());
 
-    let (mut executable, _) = account.execute_intent(b"one".to_string(), &clock, version::current(), Witness());
-    let _: &bool = account.process_action(&mut executable, version_witness::new_for_testing(@0xDE9), DummyIntent());
+    let (mut executable, _) = account.execute_intent<Config, Outcome, Witness>(b"one".to_string(), &clock, version::current(), Witness());
+    account.process_action<Config, Outcome, bool, DummyIntent>(&mut executable, version_witness::new_for_testing(@0xDE9), DummyIntent());
 
     destroy(executable);
     destroy(clock);
@@ -450,7 +450,7 @@ fun test_error_cannot_process_action_from_not_dependent_package() {
 fun test_error_cannot_process_action_with_wrong_account() {
     let (mut scenario, extensions, mut account) = start();
     let clock = clock::create_for_testing(scenario.ctx());
-    let mut account2 = account::new<Config, Outcome>(&extensions, Config {}, false, vector[b"AccountProtocol".to_string()], vector[@account_protocol], vector[1], scenario.ctx());
+    let mut account2 = account::new<Config>(&extensions, Config {}, false, vector[b"AccountProtocol".to_string()], vector[@account_protocol], vector[1], scenario.ctx());
 
     let mut intent = account.create_intent(
         b"one".to_string(), 
@@ -480,8 +480,8 @@ fun test_error_cannot_process_action_with_wrong_account() {
     account2.add_action(&mut intent2, true, version::current(), DummyIntent());
     account2.add_intent(intent2, version::current(), DummyIntent());
 
-    let (mut executable, _) = account.execute_intent(b"one".to_string(), &clock, version::current(), Witness());
-    let _: &bool = account2.process_action(&mut executable, version::current(), DummyIntent());
+    let (mut executable, _) = account.execute_intent<Config, Outcome, Witness>(b"one".to_string(), &clock, version::current(), Witness());
+    account2.process_action<Config, Outcome, bool, DummyIntent>(&mut executable, version::current(), DummyIntent());
 
     destroy(account2);
     destroy(executable);
@@ -507,8 +507,8 @@ fun test_error_cannot_process_action_with_wrong_witness() {
     );
     account.add_intent(intent, version::current(), DummyIntent());
 
-    let (mut executable, _) = account.execute_intent(b"one".to_string(), &clock, version::current(), Witness());
-    let _: &bool = account.process_action(&mut executable, version::current(), WrongWitness());
+    let (mut executable, _) = account.execute_intent<Config, Outcome, Witness>(b"one".to_string(), &clock, version::current(), Witness());
+    account.process_action<Config, Outcome, bool, WrongWitness>(&mut executable, version::current(), WrongWitness());
 
     destroy(executable);
     destroy(clock);
@@ -534,9 +534,9 @@ fun test_error_cannot_confirm_execution_from_not_dependent_package() {
     account.add_action(&mut intent, true, version::current(), DummyIntent());
     account.add_intent(intent, version::current(), DummyIntent());
 
-    let (mut executable, _) = account.execute_intent(b"one".to_string(), &clock, version::current(), Witness());
-    let _: &bool = account.process_action(&mut executable, version::current(), DummyIntent());
-    account.confirm_execution(executable, version_witness::new_for_testing(@0xDE9), DummyIntent());
+    let (mut executable, _) = account.execute_intent<Config, Outcome, Witness>(b"one".to_string(), &clock, version::current(), Witness());
+    account.process_action<Config, Outcome, bool, DummyIntent>(&mut executable, version::current(), DummyIntent());
+    account.confirm_execution<Config, Outcome, DummyIntent>(executable, version_witness::new_for_testing(@0xDE9), DummyIntent());
 
     destroy(clock);
     end(scenario, extensions, account);
@@ -546,7 +546,7 @@ fun test_error_cannot_confirm_execution_from_not_dependent_package() {
 fun test_error_cannot_confirm_execution_with_wrong_account() {
     let (mut scenario, extensions, mut account) = start();
     let clock = clock::create_for_testing(scenario.ctx());
-    let account2 = account::new<Config, Outcome>(&extensions, Config {}, false, vector[b"AccountProtocol".to_string()], vector[@account_protocol], vector[1], scenario.ctx());
+    let account2 = account::new<Config>(&extensions, Config {}, false, vector[b"AccountProtocol".to_string()], vector[@account_protocol], vector[1], scenario.ctx());
 
     let mut intent = account.create_intent(
         b"one".to_string(), 
@@ -562,9 +562,9 @@ fun test_error_cannot_confirm_execution_with_wrong_account() {
     account.add_action(&mut intent, true, version::current(), DummyIntent());
     account.add_intent(intent, version::current(), DummyIntent());
 
-    let (mut executable, _) = account.execute_intent(b"one".to_string(), &clock, version::current(), Witness());
-    let _: &bool = account.process_action(&mut executable, version::current(), DummyIntent());
-    account2.confirm_execution(executable, version::current(), DummyIntent());
+    let (mut executable, _) = account.execute_intent<Config, Outcome, Witness>(b"one".to_string(), &clock, version::current(), Witness());
+    account.process_action<Config, Outcome, bool, DummyIntent>(&mut executable, version::current(), DummyIntent());
+    account2.confirm_execution<Config, Outcome, DummyIntent>(executable, version::current(), DummyIntent());
 
     destroy(account2);
     destroy(clock);
@@ -590,9 +590,9 @@ fun test_error_cannot_confirm_execution_with_wrong_witness() {
     account.add_action(&mut intent, true, version::current(), DummyIntent());
     account.add_intent(intent, version::current(), DummyIntent());
 
-    let (mut executable, _) = account.execute_intent(b"one".to_string(), &clock, version::current(), Witness());
-    let _: &bool = account.process_action(&mut executable, version::current(), DummyIntent());
-    account.confirm_execution(executable, version::current(), WrongWitness());
+    let (mut executable, _) = account.execute_intent<Config, Outcome, Witness>(b"one".to_string(), &clock, version::current(), Witness());
+    account.process_action<Config, Outcome, bool, DummyIntent>(&mut executable, version::current(), DummyIntent());
+    account.confirm_execution<Config, Outcome, WrongWitness>(executable, version::current(), WrongWitness());
 
     destroy(clock);
     end(scenario, extensions, account);
@@ -617,8 +617,8 @@ fun test_error_cannot_confirm_execution_before_all_actions_executed() {
     account.add_action(&mut intent, Struct { inner: true }, version::current(), DummyIntent());
     account.add_intent(intent, version::current(), DummyIntent());
     
-    let (executable, outcome) = account.execute_intent(b"one".to_string(), &clock, version::current(), Witness());
-    account.confirm_execution(executable, version::current(), DummyIntent());
+    let (executable, outcome) = account.execute_intent<Config, Outcome, Witness>(b"one".to_string(), &clock, version::current(), Witness());
+    account.confirm_execution<Config, Outcome, DummyIntent>(executable, version::current(), DummyIntent());
 
     destroy(outcome);
     destroy(clock);
@@ -641,7 +641,7 @@ fun test_error_cannot_destroy_intent_without_executing_the_action() {
         scenario.ctx()
     );
     account.add_intent(intent, version::current(), DummyIntent());
-    let expired = account.destroy_empty_intent(b"one".to_string());
+    let expired = account.destroy_empty_intent<Config, Outcome>(b"one".to_string());
 
     destroy(expired);
     end(scenario, extensions, account);
@@ -664,7 +664,7 @@ fun test_error_cannot_delete_intent_not_expired() {
         scenario.ctx()
     );
     account.add_intent(intent, version::current(), DummyIntent());
-    let expired = account.delete_expired_intent(b"one".to_string(), &clock);
+    let expired = account.delete_expired_intent<Config, Outcome>(b"one".to_string(), &clock);
 
     destroy(expired);
     destroy(clock);
@@ -792,7 +792,7 @@ fun test_error_cannot_execute_intent_from_not_dependent_package() {
         scenario.ctx()
     );
     account.add_intent(intent, version::current(), DummyIntent());
-    let (executable, outcome) = account.execute_intent(b"one".to_string(), &clock, version_witness::new_for_testing(@0xDE9), Witness());
+    let (executable, outcome) = account.execute_intent<Config, Outcome, Witness>(b"one".to_string(), &clock, version_witness::new_for_testing(@0xDE9), Witness());
 
     destroy(executable);
     destroy(outcome);
@@ -817,7 +817,7 @@ fun test_error_cannot_execute_intent_not_called_from_config_module() {
         scenario.ctx()
     );
     account.add_intent(intent, version::current(), DummyIntent());
-    let (executable, outcome) = account.execute_intent(b"one".to_string(), &clock, version::current(), account::not_config_witness());
+    let (executable, outcome) = account.execute_intent<Config, Outcome, account::Witness>(b"one".to_string(), &clock, version::current(), account::not_config_witness());
 
     destroy(executable);
     destroy(outcome);
@@ -842,7 +842,7 @@ fun test_error_cannot_execute_intent_before_execution_time() {
         scenario.ctx()
     );
     account.add_intent(intent, version::current(), DummyIntent());
-    let (executable, outcome) = account.execute_intent(b"one".to_string(), &clock, version::current(), Witness());
+    let (executable, outcome) = account.execute_intent<Config, Outcome, Witness>(b"one".to_string(), &clock, version::current(), Witness());
 
     destroy(executable);
     destroy(outcome);

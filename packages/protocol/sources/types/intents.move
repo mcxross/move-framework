@@ -30,8 +30,9 @@ const EKeyAlreadyExists: u64 = 6;
 // === Structs ===
 
 /// Parent struct protecting the intents
-public struct Intents<Outcome> has store {
-    inner: vector<Intent<Outcome>>,
+public struct Intents has store {
+    // map of intents: key -> Intent<Outcome>
+    inner: Bag,
     // ids of the objects that are being requested in intents, to avoid state changes
     locked: VecSet<ID>,
 }
@@ -75,36 +76,27 @@ public struct Expired {
 
 // === View functions ===
 
-public fun length<Outcome>(intents: &Intents<Outcome>): u64 {
+public fun length(intents: &Intents): u64 {
     intents.inner.length()
 }
 
-public fun locked<Outcome>(intents: &Intents<Outcome>): &VecSet<ID> {
+public fun locked(intents: &Intents): &VecSet<ID> {
     &intents.locked
 }
 
-public fun contains<Outcome>(intents: &Intents<Outcome>, key: String): bool {
-    intents.inner.any!(|intent| intent.key == key)
+public fun contains(intents: &Intents, key: String): bool {
+    intents.inner.contains(key)
 }
 
-public fun get_idx<Outcome>(intents: &Intents<Outcome>, key: String): u64 {
-    let opt_idx = intents.inner.find_index!(|intent| intent.key == key);
-    assert!(opt_idx.is_some(), EIntentNotFound);
-    opt_idx.destroy_some()
-}
-
-public fun get<Outcome>(intents: &Intents<Outcome>, key: String): &Intent<Outcome> {
-    let idx = intents.get_idx(key);
-    &intents.inner[idx]
+public fun get<Outcome: store>(intents: &Intents, key: String): &Intent<Outcome> {
+    assert!(intents.inner.contains(key), EIntentNotFound);
+    intents.inner.borrow(key)
 }
 
 /// safe because &mut Intent is only accessible in core deps
-public fun get_mut<Outcome>(
-    intents: &mut Intents<Outcome>, 
-    key: String
-): &mut Intent<Outcome> {
-    let idx = intents.get_idx(key);
-    &mut intents.inner[idx]
+public fun get_mut<Outcome: store>(intents: &mut Intents, key: String): &mut Intent<Outcome> {
+    assert!(intents.inner.contains(key), EIntentNotFound);
+    intents.inner.borrow_mut(key)
 }
 
 public fun issuer<Outcome>(intent: &Intent<Outcome>): &Issuer {
@@ -187,8 +179,8 @@ public fun destroy_empty_expired(expired: Expired) {
 
 /// The following functions are only used in the `account` module
 
-public(package) fun empty<Outcome>(): Intents<Outcome> {
-    Intents<Outcome> { inner: vector[], locked: vec_set::empty() }
+public(package) fun empty(ctx: &mut TxContext): Intents {
+    Intents { inner: bag::new(ctx), locked: vec_set::empty() }
 }
 
 public(package) fun new_role<IW: drop>(managed_name: String, _intent_witness: IW): String {
@@ -244,12 +236,12 @@ public(package) fun add_action<Outcome, A: store>(
     intent.actions.add(idx, action);
 }
 
-public(package) fun add_intent<Outcome>(
-    intents: &mut Intents<Outcome>,
+public(package) fun add_intent<Outcome: store>(
+    intents: &mut Intents,
     intent: Intent<Outcome>,
 ) {
     assert!(!intents.contains(intent.key), EKeyAlreadyExists);
-    intents.inner.push_back(intent);
+    intents.inner.add(intent.key, intent);
 }
 
 public(package) fun pop_front_execution_time<Outcome>(
@@ -258,24 +250,23 @@ public(package) fun pop_front_execution_time<Outcome>(
     intent.execution_times.remove(0)
 }
 
-public(package) fun lock<Outcome>(intents: &mut Intents<Outcome>, id: ID) {
+public(package) fun lock(intents: &mut Intents, id: ID) {
     assert!(!intents.locked.contains(&id), EObjectAlreadyLocked);
     intents.locked.insert(id);
 }
 
-public(package) fun unlock<Outcome>(intents: &mut Intents<Outcome>, id: ID) {
+public(package) fun unlock(intents: &mut Intents, id: ID) {
     assert!(intents.locked.contains(&id), EObjectNotLocked);
     intents.locked.remove(&id);
 }
 
 /// Removes an intent being executed if the execution_time is reached
 /// Outcome must be validated in AccountMultisig to be destroyed
-public(package) fun destroy<Outcome: drop>(
-    intents: &mut Intents<Outcome>,
+public(package) fun destroy_intent<Outcome: store + drop>(
+    intents: &mut Intents,
     key: String,
 ): Expired {
-    let idx = intents.get_idx(key);
-    let Intent { issuer, key, actions, .. } = intents.inner.remove(idx);
+    let Intent<Outcome> { issuer, key, actions, .. } = intents.inner.remove(key);
     
     Expired { key, issuer, start_index: 0, actions }
 }

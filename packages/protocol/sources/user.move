@@ -133,9 +133,9 @@ public fun reorder_accounts<Config>(user: &mut User, addrs: vector<address>) {
 }
 // === Config-only functions ===
 
-public fun add_account<Config, Outcome, CW: drop>(
+public fun add_account<Config, CW: drop>(
     user: &mut User, 
-    account: &Account<Config, Outcome>, 
+    account: &Account<Config>, 
     config_witness: CW,
 ) {
     account.assert_is_config_module(config_witness);
@@ -149,9 +149,9 @@ public fun add_account<Config, Outcome, CW: drop>(
     }
 }
 
-public fun remove_account<Config, Outcome, CW: drop>(
+public fun remove_account<Config, CW: drop>(
     user: &mut User, 
-    account: &Account<Config, Outcome>, 
+    account: &Account<Config>, 
     config_witness: CW,
 ) {
     account.assert_is_config_module(config_witness);
@@ -168,8 +168,8 @@ public fun remove_account<Config, Outcome, CW: drop>(
 }
 
 /// Invites can be sent by an Account member (upon Account creation for instance)
-public fun send_invite<Config, Outcome, CW: drop>(
-    account: &Account<Config, Outcome>, 
+public fun send_invite<Config, CW: drop>(
+    account: &Account<Config>, 
     recipient: address, 
     config_witness: CW,
     ctx: &mut TxContext,
