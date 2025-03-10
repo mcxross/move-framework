@@ -24,7 +24,7 @@ use account_protocol::{
 ///     intent_witness: IW,
 /// ) {
 ///     intent.init_action!(intent_witness, || Action { <ACTION_ARGS> });
-/// }
+/// } 
 /// 
 /// ```
 
@@ -63,6 +63,6 @@ public macro fun do_action<$Outcome, $Action: store, $IW: drop>(
 ) {
     let executable = $executable;
 
-    let action = executable.get_action($intent_witness);
+    let action = executable.next_action($intent_witness);
     $do_action(action);
 }

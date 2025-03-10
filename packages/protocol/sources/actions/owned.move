@@ -55,6 +55,8 @@ public fun do_withdraw<Config, Outcome: store, T: key + store, IW: drop>(
     receiving: Receiving<T>,
     intent_witness: IW,
 ): T {
+    executable.intent().assert_is_account(account.addr());
+    
     executable.do_action!( 
         intent_witness,
         |action: &WithdrawAction| assert!(receiving.receiving_object_id() == action.object_id, EWrongObject),
@@ -68,6 +70,7 @@ public fun delete_withdraw<Config>(
     expired: &mut Expired, 
     account: &mut Account<Config>,
 ) {
+    expired.assert_is_account(account.addr());
     let WithdrawAction { object_id } = expired.remove_action();
     account.unlock_object(object_id);
 }

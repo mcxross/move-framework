@@ -11,6 +11,8 @@ use account_extensions::extensions::{Self, Extensions, AdminCap};
 use account_protocol::{
     account::{Self, Account},
     user::{Self, Registry, User},
+    deps,
+    version,
 };
 
 // === Constants ===
@@ -52,7 +54,8 @@ fun end(scenario: Scenario, registry: Registry, extensions: Extensions) {
 }
 
 fun create_account(extensions: &Extensions, ctx: &mut TxContext): Account<DummyConfig> {
-    account::new(extensions, DummyConfig {}, false, vector[], vector[], vector[], ctx)
+    let deps = deps::new_from_latest_verified(extensions, vector[b"AccountProtocol".to_string()]);
+    account::new(DummyConfig {}, deps, version::current(), Witness(), ctx)
 }
 
 // === Tests ===

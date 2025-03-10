@@ -72,7 +72,7 @@ public macro fun build_intent<$Config, $Outcome, $IW: drop>(
 
     $add_actions(&mut intent);
 
-    account.add_intent(intent, $version_witness, $intent_witness);
+    account.insert_intent(intent, $version_witness, $intent_witness);
 }
 
 /// Example implementation:
@@ -113,7 +113,7 @@ public macro fun process_intent<$Config, $Outcome: store, $IW: drop>(
     // ensures the right account is passed
     executable.intent().assert_is_account(account.addr());
     // ensures the intent is created by the same package that creates the action
-    executable.intent().assert_is_intent($intent_witness);
+    executable.intent().assert_is_witness($intent_witness);
 
     $do_actions(executable);
 }

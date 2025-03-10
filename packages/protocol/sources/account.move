@@ -95,6 +95,8 @@ public fun confirm_execution<Config, Outcome: drop + store>(
     assert!(executable.action_idx() == actions_length, EActionsRemaining);
     
     let intent = executable.destroy();
+    intent.assert_is_account(account.addr());
+    
     account.intents.add_intent(intent);
 }
 
@@ -161,8 +163,7 @@ public fun create_intent<Config, Outcome: store, IW: drop>(
     // ensures the package address is a dependency for this account
     account.deps().check(version_witness); 
 
-    intents::new_intent(
-        params,
+    params.new_intent(
         outcome,
         managed_name,
         account.addr(),
@@ -172,7 +173,7 @@ public fun create_intent<Config, Outcome: store, IW: drop>(
 }
 
 /// Adds an intent to the account. Can only be called from a dependency of the account.
-public fun add_intent<Config, Outcome: store, IW: drop>(
+public fun insert_intent<Config, Outcome: store, IW: drop>(
     account: &mut Account<Config>, 
     intent: Intent<Outcome>, 
     version_witness: VersionWitness,
@@ -183,7 +184,7 @@ public fun add_intent<Config, Outcome: store, IW: drop>(
     // ensures the right account is passed
     intent.assert_is_account(account.addr());
     // ensures the intent is created by the same package that creates the action
-    intent.assert_is_intent(intent_witness);
+    intent.assert_is_witness(intent_witness);
 
     account.intents.add_intent(intent);
 }
@@ -319,7 +320,7 @@ public fun new<Config, CW: drop>(
     account.deps().check(version_witness);
     account.assert_is_config_module(config_witness);
 
-    account
+    account 
 }
 
 /// Returns an Auth object that can be used to call gated functions. Can only be called from the config module.

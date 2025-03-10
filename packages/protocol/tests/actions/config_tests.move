@@ -11,6 +11,8 @@ use sui::{
 use account_extensions::extensions::{Self, Extensions, AdminCap};
 use account_protocol::{
     account::{Self, Account},
+    deps,
+    intents,
     config,
     version,
 };
@@ -43,8 +45,9 @@ fun start(): (Scenario, Extensions, Account<Config>, Clock) {
     extensions.add(&cap, b"AccountActions".to_string(), @0x2, 1);
     // add external dep
     extensions.add(&cap, b"External".to_string(), @0xABC, 1);
-    // Account generic types are dummy types (bool, bool)
-    let account = account::new(&extensions, Config {}, false, vector[b"AccountProtocol".to_string()], vector[@account_protocol], vector[1], scenario.ctx());
+
+    let deps = deps::new_from_latest_verified(&extensions, vector[b"AccountProtocol".to_string()]);
+    let account = account::new(Config {}, deps, version::current(), Witness(), scenario.ctx());
     let clock = clock::create_for_testing(scenario.ctx());
     // create world
     destroy(cap);
@@ -83,14 +86,18 @@ fun test_request_execute_config_deps() {
     let key = b"dummy".to_string();
 
     let auth = account.new_auth(version::current(), Witness());
-    config::request_config_deps(
-        auth, 
-        Outcome {}, 
-        &mut account, 
+    let params = intents::new_params(
         key, 
         b"".to_string(), 
-        0, 
+        vector[0],
         1, 
+        &clock,
+    );
+    config::request_config_deps(
+        auth, 
+        &mut account, 
+        params,
+        Outcome {}, 
         &extensions,
         vector[b"AccountProtocol".to_string(), b"External".to_string()], 
         vector[@account_protocol, @0xABC], 
@@ -99,8 +106,9 @@ fun test_request_execute_config_deps() {
     );
     assert!(!account.deps().contains_name(b"External".to_string()));
 
-    let (executable, _) = account.execute_intent<Config, Outcome, Witness>(key, &clock, version::current(), Witness());
-    config::execute_config_deps<Config, Outcome>(executable, &mut account);
+    let (_, mut executable) = account.create_executable<_, Outcome, _>(key, &clock, version::current(), Witness());
+    config::execute_config_deps<Config, Outcome>(&mut executable, &mut account);
+    account.confirm_execution(executable);
 
     let mut expired = account.destroy_empty_intent<Config, Outcome>(key);
     config::delete_config_deps(&mut expired);
@@ -120,18 +128,22 @@ fun test_config_deps_expired() {
     let key = b"dummy".to_string();
 
     let auth = account.new_auth(version::current(), Witness());
-    config::request_config_deps(
-        auth, 
-        Outcome {}, 
-        &mut account, 
+    let params = intents::new_params(
         key, 
         b"".to_string(), 
-        0, 
+        vector[0],
         1, 
+        &clock,
+    );
+    config::request_config_deps(
+        auth, 
+        &mut account, 
+        params,
+        Outcome {}, 
         &extensions,
-        vector[b"External".to_string()], 
-        vector[@0xABC], 
-        vector[1], 
+        vector[b"AccountProtocol".to_string(), b"External".to_string()], 
+        vector[@account_protocol, @0xABC], 
+        vector[1, 1], 
         scenario.ctx()
     );
     
@@ -148,19 +160,24 @@ fun test_request_execute_toggle_unverified_allowed() {
     let key = b"dummy".to_string();
 
     let auth = account.new_auth(version::current(), Witness());
-    config::request_toggle_unverified_allowed(
-        auth, 
-        Outcome {}, 
-        &mut account, 
+    let params = intents::new_params(
         key, 
         b"".to_string(), 
-        0, 
+        vector[0],
         1, 
+        &clock,
+    );
+    config::request_toggle_unverified_allowed(
+        auth, 
+        &mut account,
+        params,
+        Outcome {}, 
         scenario.ctx()
     );
 
-    let (executable, _) = account.execute_intent<Config, Outcome, Witness>(key, &clock, version::current(), Witness());
-    config::execute_toggle_unverified_allowed<Config, Outcome>(executable, &mut account);
+    let (_, mut executable) = account.create_executable<_, Outcome, _>(key, &clock, version::current(), Witness());
+    config::execute_toggle_unverified_allowed<Config, Outcome>(&mut executable, &mut account);
+    account.confirm_execution(executable);
 
     let mut expired = account.destroy_empty_intent<Config, Outcome>(key);
     config::delete_toggle_unverified_allowed(&mut expired);
@@ -178,14 +195,18 @@ fun test_toggle_unverified_allowed_expired() {
     let key = b"dummy".to_string();
 
     let auth = account.new_auth(version::current(), Witness());
-    config::request_toggle_unverified_allowed(
-        auth, 
-        Outcome {}, 
-        &mut account, 
+    let params = intents::new_params(
         key, 
         b"".to_string(), 
-        0, 
+        vector[0],
         1, 
+        &clock,
+    );
+    config::request_toggle_unverified_allowed(
+        auth, 
+        &mut account,
+        params,
+        Outcome {}, 
         scenario.ctx()
     );
     

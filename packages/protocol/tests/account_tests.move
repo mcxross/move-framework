@@ -10,10 +10,10 @@ use sui::{
 };
 use account_protocol::{
     account::{Self, Account},
+    intents,
+    deps,
     version,
     version_witness,
-    deps,
-    issuer,
 };
 use account_extensions::extensions::{Self, Extensions, AdminCap};
 
@@ -29,10 +29,10 @@ public struct DummyIntent() has copy, drop;
 public struct WrongWitness() has drop;
 
 public struct Key has copy, drop, store {}
-public struct Struct has store {
+public struct Data has store {
     inner: bool
 }
-public struct Object has key, store {
+public struct Asset has key, store {
     id: UID,
 }
 
@@ -55,7 +55,8 @@ fun start(): (Scenario, Extensions, Account<Config>) {
     extensions.add(&cap, b"AccountMultisig".to_string(), @0x1, 1);
     extensions.add(&cap, b"AccountActions".to_string(), @0x2, 1);
 
-    let account = account::new(&extensions, Config {}, false, vector[b"AccountProtocol".to_string()], vector[@account_protocol], vector[1], scenario.ctx());
+    let deps = deps::new(&extensions, false, vector[b"AccountProtocol".to_string()], vector[@account_protocol], vector[1]);
+    let account = account::new(Config {}, deps, version::current(), Witness(), scenario.ctx());
     // create world
     destroy(cap);
     (scenario, extensions, account)
@@ -83,9 +84,9 @@ fun test_create_and_share_account() {
 fun test_keep_object() {
     let (mut scenario, extensions, account) = start();
 
-    account.keep(Object { id: object::new(scenario.ctx()) });
+    account.keep(Asset { id: object::new(scenario.ctx()) });
     scenario.next_tx(OWNER);
-    let Object { id } = scenario.take_from_address<Object>(account.addr());
+    let Asset { id } = scenario.take_from_address<Asset>(account.addr());
     id.delete();
 
     end(scenario, extensions, account);
@@ -109,24 +110,26 @@ fun test_intent_create_execute_flow() {
     let (mut scenario, extensions, mut account) = start();
     let clock = clock::create_for_testing(scenario.ctx());
 
-    let mut intent = account.create_intent(
+    let params = intents::new_params(
         b"one".to_string(), 
         b"description".to_string(), 
         vector[0],
         1, 
-        b"Degen".to_string(), 
+        &clock,
+    );
+    let intent = account.create_intent(
+        params,
         Outcome {}, 
+        b"Degen".to_string(),
         version::current(),
         DummyIntent(), 
         scenario.ctx()
     );
-    account.add_action(&mut intent, Struct { inner: true }, version::current(), DummyIntent());
-    account.add_intent(intent, version::current(), DummyIntent());
+    account.insert_intent(intent, version::current(), DummyIntent());
 
-    let (mut executable, outcome) = account.execute_intent<Config, Outcome, Witness>(b"one".to_string(), &clock, version::current(), Witness());
-    account.process_action<Config, Outcome, Struct, _>(&mut executable, version::current(), DummyIntent());
-    assert!(account.intents().get<Outcome>(b"one".to_string()).execution_times().length() == 0);
-    account.confirm_execution<Config, Outcome, DummyIntent>(executable, version::current(), DummyIntent());
+    let (outcome, executable) = account.create_executable<Config, Outcome, Witness>(b"one".to_string(), &clock, version::current(), Witness());
+    assert!(executable.intent().execution_times().length() == 0);
+    account.confirm_execution<Config, Outcome>(executable);
     assert!(account.intents().length() == 1);
     let expired = account.destroy_empty_intent<Config, Outcome>(b"one".to_string());
     assert!(account.intents().length() == 0);
@@ -142,21 +145,25 @@ fun test_anyone_can_execute_intent() {
     let (mut scenario, extensions, mut account) = start();
     let clock = clock::create_for_testing(scenario.ctx());
 
-    let intent = account.create_intent(
+    let params = intents::new_params(
         b"one".to_string(), 
         b"description".to_string(), 
         vector[0],
         1, 
-        b"Degen".to_string(), 
+        &clock,
+    );
+    let intent = account.create_intent(
+        params,
         Outcome {}, 
-        version::current(), 
+        b"Degen".to_string(),
+        version::current(),
         DummyIntent(), 
         scenario.ctx()
     );
-    account.add_intent(intent, version::current(), DummyIntent());
+    account.insert_intent(intent, version::current(), DummyIntent());
 
     scenario.next_tx(ALICE);
-    let (executable, outcome) = account.execute_intent<Config, Outcome, Witness>(b"one".to_string(), &clock, version::current(), Witness());
+    let (outcome, executable) = account.create_executable<Config, Outcome, Witness>(b"one".to_string(), &clock, version::current(), Witness());
     
     destroy(outcome);
     destroy(executable);
@@ -170,18 +177,22 @@ fun test_intent_delete_flow() {
     let mut clock = clock::create_for_testing(scenario.ctx());
     clock.increment_for_testing(1);
 
-    let intent = account.create_intent(
+    let params = intents::new_params(
         b"one".to_string(), 
         b"description".to_string(), 
         vector[0],
         1, 
-        b"Degen".to_string(), 
+        &clock,
+    );
+    let intent = account.create_intent(
+        params,
         Outcome {}, 
-        version::current(), 
+        b"Degen".to_string(),
+        version::current(),
         DummyIntent(), 
         scenario.ctx()
     );
-    account.add_intent(intent, version::current(), DummyIntent());
+    account.insert_intent(intent, version::current(), DummyIntent());    
 
     assert!(account.intents().length() == 1);
     let expired = account.delete_expired_intent<Config, Outcome>(b"one".to_string(), &clock);
@@ -193,29 +204,29 @@ fun test_intent_delete_flow() {
 }
 
 #[test]
-fun test_managed_structs() {
+fun test_managed_data() {
     let (scenario, extensions, mut account) = start();
 
-    account.add_managed_data(Key {}, Struct { inner: true }, version::current());
+    account.add_managed_data(Key {}, Data { inner: true }, version::current());
     account.has_managed_data(Key {});
-    let `struct`: &Struct = account.borrow_managed_data(Key {}, version::current());
-    assert!(`struct`.inner == true);
-    let `struct`: &mut Struct = account.borrow_managed_data_mut(Key {}, version::current());
-    assert!(`struct`.inner == true);
-    let Struct { .. } = account.remove_managed_data(Key {}, version::current());
+    let data: &Data = account.borrow_managed_data(Key {}, version::current());
+    assert!(data.inner == true);
+    let data: &mut Data = account.borrow_managed_data_mut(Key {}, version::current());
+    assert!(data.inner == true);
+    let Data { .. } = account.remove_managed_data(Key {}, version::current());
 
     end(scenario, extensions, account);
 }
 
 #[test]
-fun test_managed_objects() {
+fun test_managed_assets() {
     let (mut scenario, extensions, mut account) = start();
 
-    account.add_managed_asset(Key {}, Object { id: object::new(scenario.ctx()) }, version::current());
+    account.add_managed_asset(Key {}, Asset { id: object::new(scenario.ctx()) }, version::current());
     account.has_managed_asset(Key {});
-    let _object: &Object = account.borrow_managed_asset(Key {}, version::current());
-    let _object: &mut Object = account.borrow_managed_asset_mut(Key {}, version::current());
-    let Object { id } = account.remove_managed_asset(Key {}, version::current());
+    let _asset: &Asset = account.borrow_managed_asset(Key {}, version::current());
+    let _asset: &mut Asset = account.borrow_managed_asset_mut(Key {}, version::current());
+    let Asset { id } = account.remove_managed_asset(Key {}, version::current());
     id.delete();
 
     end(scenario, extensions, account);
@@ -225,10 +236,10 @@ fun test_managed_objects() {
 fun test_receive_object() {
     let (mut scenario, extensions, mut account) = start();
 
-    account.keep(Object { id: object::new(scenario.ctx()) });
+    account.keep(Asset { id: object::new(scenario.ctx()) });
     scenario.next_tx(OWNER);
     let id = object::id(&account);
-    let Object { id } = account.receive(ts::most_recent_receiving_ticket<Object>(&id));
+    let Asset { id } = account.receive(ts::most_recent_receiving_ticket<Asset>(&id));
     id.delete();
 
     end(scenario, extensions, account);
@@ -265,7 +276,8 @@ fun test_error_cannot_verify_wrong_account() {
     let (mut scenario, extensions, account) = start();
     
     let auth = account.new_auth(version::current(), Witness());
-    let account2 = account::new<Config>(&extensions, Config {}, false, vector[b"AccountProtocol".to_string()], vector[@account_protocol], vector[1], scenario.ctx());
+    let deps = deps::new_from_latest_verified(&extensions, vector[b"AccountProtocol".to_string()]);
+    let account2 = account::new(Config {}, deps, version::current(), Witness(), scenario.ctx());
     account2.verify(auth);
 
     destroy(account2);
@@ -274,326 +286,142 @@ fun test_error_cannot_verify_wrong_account() {
 
 #[test, expected_failure(abort_code = deps::ENotDep)]
 fun test_error_cannot_create_intent_from_not_dependent_package() {
-    let (mut scenario, extensions, mut account) = start();
+    let (mut scenario, extensions, mut account) = start();  
+    let clock = clock::create_for_testing(scenario.ctx());
 
-    let intent = account.create_intent(
+    let params = intents::new_params(
         b"one".to_string(), 
         b"description".to_string(), 
         vector[0],
         1, 
-        b"Degen".to_string(), 
+        &clock,
+    );
+    let intent = account.create_intent(
+        params,
         Outcome {}, 
+        b"Degen".to_string(),
         version_witness::new_for_testing(@0xDE9), 
         DummyIntent(), 
         scenario.ctx()
     );
+    account.insert_intent(intent, version::current(), DummyIntent());
 
-    destroy(intent);
+    destroy(clock);
     end(scenario, extensions, account);
 }
 
 #[test, expected_failure(abort_code = deps::ENotDep)]
-fun test_error_cannot_add_action_from_not_dependent_package() {
-    let (mut scenario, extensions, mut account) = start();
+fun test_error_cannot_insert_intent_from_not_dependent_package() {
+    let (mut scenario, extensions, mut account) = start();  
+    let clock = clock::create_for_testing(scenario.ctx());
 
-    let mut intent = account.create_intent(
+    let params = intents::new_params(
         b"one".to_string(), 
         b"description".to_string(), 
         vector[0],
         1, 
-        b"Degen".to_string(), 
+        &clock,
+    );
+    let intent = account.create_intent(
+        params,
         Outcome {}, 
-        version::current(), 
+        b"Degen".to_string(),
+        version::current(),
         DummyIntent(), 
         scenario.ctx()
     );
-    account.add_action(&mut intent, true, version_witness::new_for_testing(@0xDE9), DummyIntent());
-    account.add_intent(intent, version::current(), DummyIntent());
+    account.insert_intent(intent, version_witness::new_for_testing(@0xDE9), DummyIntent());
 
+    destroy(clock);
     end(scenario, extensions, account);
 }
 
-#[test, expected_failure(abort_code = issuer::EWrongAccount)]
-fun test_error_cannot_add_action_with_wrong_account() {
+#[test, expected_failure(abort_code = intents::EWrongAccount)]
+fun test_error_insert_intent_with_wrong_account() {
     let (mut scenario, extensions, mut account) = start();
-    let account2 = account::new<Config>(&extensions, Config {}, false, vector[b"AccountProtocol".to_string()], vector[@account_protocol], vector[1], scenario.ctx());
+    let clock = clock::create_for_testing(scenario.ctx());
 
-    let mut intent = account.create_intent(
+    let deps = deps::new_from_latest_verified(&extensions, vector[b"AccountProtocol".to_string()]);
+    let mut account2 = account::new(Config {}, deps, version::current(), Witness(), scenario.ctx());
+
+    let params = intents::new_params(
         b"one".to_string(), 
         b"description".to_string(), 
         vector[0],
         1, 
-        b"Degen".to_string(), 
+        &clock,
+    );
+    let intent = account.create_intent(
+        params,
         Outcome {}, 
-        version::current(), 
+        b"Degen".to_string(),
+        version::current(),
         DummyIntent(), 
         scenario.ctx()
     );
-    account2.add_action(&mut intent, true, version::current(), DummyIntent());
-    account.add_intent(intent, version::current(), DummyIntent());
+    
+    account2.insert_intent(intent, version::current(), DummyIntent());
 
     destroy(account2);
-    end(scenario, extensions, account);
-}
-
-#[test, expected_failure(abort_code = issuer::EWrongWitness)]
-fun test_error_cannot_add_action_with_wrong_witness() {
-    let (mut scenario, extensions, mut account) = start();
-
-    let mut intent = account.create_intent(
-        b"one".to_string(), 
-        b"description".to_string(), 
-        vector[0],
-        1, 
-        b"Degen".to_string(), 
-        Outcome {}, 
-        version::current(), 
-        DummyIntent(), 
-        scenario.ctx()
-    );
-    account.add_action(&mut intent, true, version::current(), WrongWitness());
-    account.add_intent(intent, version::current(), DummyIntent());
-
-    end(scenario, extensions, account);
-}
-
-#[test, expected_failure(abort_code = deps::ENotDep)]
-fun test_error_cannot_add_intent_from_not_dependent_package() {
-    let (mut scenario, extensions, mut account) = start();
-
-    let intent = account.create_intent(
-        b"one".to_string(), 
-        b"description".to_string(), 
-        vector[0],
-        1, 
-        b"Degen".to_string(), 
-        Outcome {}, 
-        version::current(), 
-        DummyIntent(), 
-        scenario.ctx()
-    );
-    account.add_intent(intent, version_witness::new_for_testing(@0xDE9), DummyIntent());
-
-    end(scenario, extensions, account);
-}
-
-#[test, expected_failure(abort_code = issuer::EWrongAccount)]
-fun test_error_cannot_add_intent_with_wrong_account() {
-    let (mut scenario, extensions, mut account) = start();
-    let mut account2 = account::new<Config>(&extensions, Config {}, false, vector[b"AccountProtocol".to_string()], vector[@account_protocol], vector[1], scenario.ctx());
-
-    let intent = account.create_intent(
-        b"one".to_string(), 
-        b"description".to_string(), 
-        vector[0],
-        1, 
-        b"Degen".to_string(), 
-        Outcome {}, 
-        version::current(), 
-        DummyIntent(), 
-        scenario.ctx()
-    );
-    account2.add_intent(intent, version::current(), DummyIntent());
-
-    destroy(account2);
-    end(scenario, extensions, account);
-}
-
-#[test, expected_failure(abort_code = issuer::EWrongWitness)]
-fun test_error_cannot_add_intent_with_wrong_witness() {
-    let (mut scenario, extensions, mut account) = start();
-
-    let intent = account.create_intent(
-        b"one".to_string(), 
-        b"description".to_string(), 
-        vector[0],
-        1, 
-        b"Degen".to_string(), 
-        Outcome {}, 
-        version::current(), 
-        DummyIntent(), 
-        scenario.ctx()
-    );
-    account.add_intent(intent, version::current(), WrongWitness());
-
-    end(scenario, extensions, account);
-}
-
-#[test, expected_failure(abort_code = deps::ENotDep)]
-fun test_error_cannot_process_action_from_not_dependent_package() {
-    let (mut scenario, extensions, mut account) = start();
-    let clock = clock::create_for_testing(scenario.ctx());
-
-    let mut intent = account.create_intent(
-        b"one".to_string(), 
-        b"description".to_string(), 
-        vector[0],
-        1, 
-        b"Degen".to_string(), 
-        Outcome {}, 
-        version::current(), 
-        DummyIntent(), 
-        scenario.ctx()
-    );
-    account.add_action(&mut intent, true, version::current(), DummyIntent());
-    account.add_intent(intent, version::current(), DummyIntent());
-
-    let (mut executable, _) = account.execute_intent<Config, Outcome, Witness>(b"one".to_string(), &clock, version::current(), Witness());
-    account.process_action<Config, Outcome, bool, DummyIntent>(&mut executable, version_witness::new_for_testing(@0xDE9), DummyIntent());
-
-    destroy(executable);
     destroy(clock);
     end(scenario, extensions, account);
 }
 
-#[test, expected_failure(abort_code = issuer::EWrongAccount)]
-fun test_error_cannot_process_action_with_wrong_account() {
+#[test, expected_failure(abort_code = intents::EWrongWitness)]
+fun test_error_insert_intent_with_wrong_witness() {
     let (mut scenario, extensions, mut account) = start();
     let clock = clock::create_for_testing(scenario.ctx());
-    let mut account2 = account::new<Config>(&extensions, Config {}, false, vector[b"AccountProtocol".to_string()], vector[@account_protocol], vector[1], scenario.ctx());
 
-    let mut intent = account.create_intent(
+    let params = intents::new_params(
         b"one".to_string(), 
         b"description".to_string(), 
         vector[0],
         1, 
-        b"Degen".to_string(), 
-        Outcome {}, 
-        version::current(), 
-        DummyIntent(), 
-        scenario.ctx()
+        &clock,
     );
-    account.add_action(&mut intent, true, version::current(), DummyIntent());
-    account.add_intent(intent, version::current(), DummyIntent());
-
-    let mut intent2 = account2.create_intent(
-        b"one".to_string(), 
-        b"description".to_string(), 
-        vector[0],
-        1, 
-        b"Degen".to_string(), 
-        Outcome {}, 
-        version::current(), 
-        DummyIntent(), 
-        scenario.ctx()
-    );
-    account2.add_action(&mut intent2, true, version::current(), DummyIntent());
-    account2.add_intent(intent2, version::current(), DummyIntent());
-
-    let (mut executable, _) = account.execute_intent<Config, Outcome, Witness>(b"one".to_string(), &clock, version::current(), Witness());
-    account2.process_action<Config, Outcome, bool, DummyIntent>(&mut executable, version::current(), DummyIntent());
-
-    destroy(account2);
-    destroy(executable);
-    destroy(clock);
-    end(scenario, extensions, account);
-}
-
-#[test, expected_failure(abort_code = issuer::EWrongWitness)]
-fun test_error_cannot_process_action_with_wrong_witness() {
-    let (mut scenario, extensions, mut account) = start();
-    let clock = clock::create_for_testing(scenario.ctx());
-
     let intent = account.create_intent(
-        b"one".to_string(), 
-        b"description".to_string(), 
-        vector[0],
-        1, 
-        b"Degen".to_string(), 
+        params,
         Outcome {}, 
-        version::current(), 
+        b"Degen".to_string(),
+        version::current(),
         DummyIntent(), 
         scenario.ctx()
-    );
-    account.add_intent(intent, version::current(), DummyIntent());
-
-    let (mut executable, _) = account.execute_intent<Config, Outcome, Witness>(b"one".to_string(), &clock, version::current(), Witness());
-    account.process_action<Config, Outcome, bool, WrongWitness>(&mut executable, version::current(), WrongWitness());
-
-    destroy(executable);
-    destroy(clock);
-    end(scenario, extensions, account);
-}
-
-#[test, expected_failure(abort_code = deps::ENotDep)]
-fun test_error_cannot_confirm_execution_from_not_dependent_package() {
-    let (mut scenario, extensions, mut account) = start();
-    let clock = clock::create_for_testing(scenario.ctx());
-
-    let mut intent = account.create_intent(
-        b"one".to_string(), 
-        b"description".to_string(), 
-        vector[0],
-        1, 
-        b"Degen".to_string(), 
-        Outcome {}, 
-        version::current(), 
-        DummyIntent(), 
-        scenario.ctx()
-    );
-    account.add_action(&mut intent, true, version::current(), DummyIntent());
-    account.add_intent(intent, version::current(), DummyIntent());
-
-    let (mut executable, _) = account.execute_intent<Config, Outcome, Witness>(b"one".to_string(), &clock, version::current(), Witness());
-    account.process_action<Config, Outcome, bool, DummyIntent>(&mut executable, version::current(), DummyIntent());
-    account.confirm_execution<Config, Outcome, DummyIntent>(executable, version_witness::new_for_testing(@0xDE9), DummyIntent());
+    );    
+    account.insert_intent(intent, version::current(), WrongWitness());
 
     destroy(clock);
     end(scenario, extensions, account);
 }
 
-#[test, expected_failure(abort_code = issuer::EWrongAccount)]
+#[test, expected_failure(abort_code = intents::EWrongAccount)]
 fun test_error_cannot_confirm_execution_with_wrong_account() {
     let (mut scenario, extensions, mut account) = start();
     let clock = clock::create_for_testing(scenario.ctx());
-    let account2 = account::new<Config>(&extensions, Config {}, false, vector[b"AccountProtocol".to_string()], vector[@account_protocol], vector[1], scenario.ctx());
 
-    let mut intent = account.create_intent(
+    let deps = deps::new_from_latest_verified(&extensions, vector[b"AccountProtocol".to_string()]);
+    let mut account2 = account::new(Config {}, deps, version::current(), Witness(), scenario.ctx());
+
+    let params = intents::new_params(
         b"one".to_string(), 
         b"description".to_string(), 
         vector[0],
         1, 
-        b"Degen".to_string(), 
+        &clock,
+    );
+    let intent = account.create_intent(
+        params,
         Outcome {}, 
-        version::current(), 
+        b"Degen".to_string(),
+        version::current(),
         DummyIntent(), 
         scenario.ctx()
     );
-    account.add_action(&mut intent, true, version::current(), DummyIntent());
-    account.add_intent(intent, version::current(), DummyIntent());
+    account.insert_intent(intent, version::current(), DummyIntent());
 
-    let (mut executable, _) = account.execute_intent<Config, Outcome, Witness>(b"one".to_string(), &clock, version::current(), Witness());
-    account.process_action<Config, Outcome, bool, DummyIntent>(&mut executable, version::current(), DummyIntent());
-    account2.confirm_execution<Config, Outcome, DummyIntent>(executable, version::current(), DummyIntent());
+    let (_, executable) = account.create_executable<Config, Outcome, Witness>(b"one".to_string(), &clock, version::current(), Witness());
+    account2.confirm_execution<Config, Outcome>(executable);
 
     destroy(account2);
-    destroy(clock);
-    end(scenario, extensions, account);
-}
-
-#[test, expected_failure(abort_code = issuer::EWrongWitness)]
-fun test_error_cannot_confirm_execution_with_wrong_witness() {
-    let (mut scenario, extensions, mut account) = start();
-    let clock = clock::create_for_testing(scenario.ctx());
-
-    let mut intent = account.create_intent(
-        b"one".to_string(), 
-        b"description".to_string(), 
-        vector[0],
-        1, 
-        b"Degen".to_string(), 
-        Outcome {}, 
-        version::current(), 
-        DummyIntent(), 
-        scenario.ctx()
-    );
-    account.add_action(&mut intent, true, version::current(), DummyIntent());
-    account.add_intent(intent, version::current(), DummyIntent());
-
-    let (mut executable, _) = account.execute_intent<Config, Outcome, Witness>(b"one".to_string(), &clock, version::current(), Witness());
-    account.process_action<Config, Outcome, bool, DummyIntent>(&mut executable, version::current(), DummyIntent());
-    account.confirm_execution<Config, Outcome, WrongWitness>(executable, version::current(), WrongWitness());
-
     destroy(clock);
     end(scenario, extensions, account);
 }
@@ -603,22 +431,26 @@ fun test_error_cannot_confirm_execution_before_all_actions_executed() {
     let (mut scenario, extensions, mut account) = start();
     let clock = clock::create_for_testing(scenario.ctx());
 
-    let mut intent = account.create_intent(
+    let params = intents::new_params(
         b"one".to_string(), 
-        b"".to_string(), 
-        vector[0], 
+        b"description".to_string(), 
+        vector[0],
         1, 
-        b"".to_string(), 
+        &clock,
+    );
+    let mut intent = account.create_intent(
+        params,
         Outcome {}, 
-        version::current(), 
+        b"Degen".to_string(),
+        version::current(),
         DummyIntent(), 
         scenario.ctx()
     );
-    account.add_action(&mut intent, Struct { inner: true }, version::current(), DummyIntent());
-    account.add_intent(intent, version::current(), DummyIntent());
+    intent.add_action(Data { inner: true }, DummyIntent());
+    account.insert_intent(intent, version::current(), DummyIntent());
     
-    let (executable, outcome) = account.execute_intent<Config, Outcome, Witness>(b"one".to_string(), &clock, version::current(), Witness());
-    account.confirm_execution<Config, Outcome, DummyIntent>(executable, version::current(), DummyIntent());
+    let (outcome, executable) = account.create_executable<Config, Outcome, Witness>(b"one".to_string(), &clock, version::current(), Witness());
+    account.confirm_execution<Config, Outcome>(executable);
 
     destroy(outcome);
     destroy(clock);
@@ -628,22 +460,28 @@ fun test_error_cannot_confirm_execution_before_all_actions_executed() {
 #[test, expected_failure(abort_code = account::ECantBeRemovedYet)]
 fun test_error_cannot_destroy_intent_without_executing_the_action() {
     let (mut scenario, extensions, mut account) = start();
+    let clock = clock::create_for_testing(scenario.ctx());
 
-    let intent = account.create_intent(
+    let params = intents::new_params(
         b"one".to_string(), 
-        b"".to_string(), 
-        vector[1], 
+        b"description".to_string(), 
+        vector[0],
         1, 
-        b"".to_string(), 
+        &clock,
+    );
+    let intent = account.create_intent(
+        params,
         Outcome {}, 
-        version::current(), 
+        b"Degen".to_string(),
+        version::current(),
         DummyIntent(), 
         scenario.ctx()
     );
-    account.add_intent(intent, version::current(), DummyIntent());
+    account.insert_intent(intent, version::current(), DummyIntent());
     let expired = account.destroy_empty_intent<Config, Outcome>(b"one".to_string());
 
     destroy(expired);
+    destroy(clock);
     end(scenario, extensions, account);
 }
 
@@ -652,18 +490,22 @@ fun test_error_cannot_delete_intent_not_expired() {
     let (mut scenario, extensions, mut account) = start();
     let clock = clock::create_for_testing(scenario.ctx());
 
-    let intent = account.create_intent(
+    let params = intents::new_params(
         b"one".to_string(), 
-        b"".to_string(), 
-        vector[1], 
+        b"description".to_string(), 
+        vector[0],
         1, 
-        b"".to_string(), 
+        &clock,
+    );
+    let intent = account.create_intent(
+        params,
         Outcome {}, 
-        version::current(), 
+        b"Degen".to_string(),
+        version::current(),
         DummyIntent(), 
         scenario.ctx()
     );
-    account.add_intent(intent, version::current(), DummyIntent());
+    account.insert_intent(intent, version::current(), DummyIntent());
     let expired = account.delete_expired_intent<Config, Outcome>(b"one".to_string(), &clock);
 
     destroy(expired);
@@ -676,7 +518,7 @@ fun test_error_cannot_delete_intent_not_expired() {
 fun test_error_cannot_add_managed_asset_from_not_dependent_package() {
     let (scenario, extensions, mut account) = start();
 
-    account.add_managed_data(Key {}, Struct { inner: true }, version_witness::new_for_testing(@0xDE9));
+    account.add_managed_data(Key {}, Data { inner: true }, version_witness::new_for_testing(@0xDE9));
 
     end(scenario, extensions, account);
 }
@@ -685,8 +527,8 @@ fun test_error_cannot_add_managed_asset_from_not_dependent_package() {
 fun test_error_cannot_borrow_managed_asset_from_not_dependent_package() {
     let (scenario, extensions, mut account) = start();
 
-    account.add_managed_data(Key {}, Struct { inner: true }, version::current());
-    let asset: &Struct = account.borrow_managed_data(Key {}, version_witness::new_for_testing(@0xDE9));
+    account.add_managed_data(Key {}, Data { inner: true }, version::current());
+    let asset: &Data = account.borrow_managed_data(Key {}, version_witness::new_for_testing(@0xDE9));
     assert!(asset.inner == true);
 
     end(scenario, extensions, account);
@@ -696,8 +538,8 @@ fun test_error_cannot_borrow_managed_asset_from_not_dependent_package() {
 fun test_error_cannot_borrow_mut_managed_asset_from_not_dependent_package() {
     let (scenario, extensions, mut account) = start();
 
-    account.add_managed_data(Key {}, Struct { inner: true }, version::current());
-    let asset: &mut Struct = account.borrow_managed_data_mut(Key {}, version_witness::new_for_testing(@0xDE9));
+    account.add_managed_data(Key {}, Data { inner: true }, version::current());
+    let asset: &mut Data = account.borrow_managed_data_mut(Key {}, version_witness::new_for_testing(@0xDE9));
     assert!(asset.inner == true);
 
     end(scenario, extensions, account);
@@ -707,8 +549,8 @@ fun test_error_cannot_borrow_mut_managed_asset_from_not_dependent_package() {
 fun test_error_cannot_remove_managed_asset_from_not_dependent_package() {
     let (scenario, extensions, mut account) = start();
 
-    account.add_managed_data(Key {}, Struct { inner: true }, version::current());
-    let Struct { .. } = account.remove_managed_data(Key {}, version_witness::new_for_testing(@0xDE9));
+    account.add_managed_data(Key {}, Data { inner: true }, version::current());
+    let Data { .. } = account.remove_managed_data(Key {}, version_witness::new_for_testing(@0xDE9));
 
     end(scenario, extensions, account);
 }
@@ -717,7 +559,7 @@ fun test_error_cannot_remove_managed_asset_from_not_dependent_package() {
 fun test_error_cannot_add_managed_object_from_not_dependent_package() {
     let (mut scenario, extensions, mut account) = start();
 
-    account.add_managed_asset(Key {}, Object { id: object::new(scenario.ctx()) }, version_witness::new_for_testing(@0xDE9));
+    account.add_managed_asset(Key {}, Asset { id: object::new(scenario.ctx()) }, version_witness::new_for_testing(@0xDE9));
 
     end(scenario, extensions, account);
 }
@@ -726,8 +568,8 @@ fun test_error_cannot_add_managed_object_from_not_dependent_package() {
 fun test_error_cannot_borrow_managed_object_from_not_dependent_package() {
     let (mut scenario, extensions, mut account) = start();
 
-    account.add_managed_asset(Key {}, Object { id: object::new(scenario.ctx()) }, version::current());
-    let asset: &Object = account.borrow_managed_asset(Key {}, version_witness::new_for_testing(@0xDE9));
+    account.add_managed_asset(Key {}, Asset { id: object::new(scenario.ctx()) }, version::current());
+    let asset: &Asset = account.borrow_managed_asset(Key {}, version_witness::new_for_testing(@0xDE9));
     assert!(asset.id.to_inner() == object::id(&account));
 
     end(scenario, extensions, account);
@@ -737,8 +579,8 @@ fun test_error_cannot_borrow_managed_object_from_not_dependent_package() {
 fun test_error_cannot_borrow_mut_managed_object_from_not_dependent_package() {
     let (mut scenario, extensions, mut account) = start();
 
-    account.add_managed_asset(Key {}, Object { id: object::new(scenario.ctx()) }, version::current());
-    let asset: &mut Object = account.borrow_managed_asset_mut(Key {}, version_witness::new_for_testing(@0xDE9));
+    account.add_managed_asset(Key {}, Asset { id: object::new(scenario.ctx()) }, version::current());
+    let asset: &mut Asset = account.borrow_managed_asset_mut(Key {}, version_witness::new_for_testing(@0xDE9));
     assert!(asset.id.to_inner() == object::id(&account));
 
     end(scenario, extensions, account);
@@ -748,8 +590,8 @@ fun test_error_cannot_borrow_mut_managed_object_from_not_dependent_package() {
 fun test_error_cannot_remove_managed_object_from_not_dependent_package() {
     let (mut scenario, extensions, mut account) = start();
 
-    account.add_managed_asset(Key {}, Object { id: object::new(scenario.ctx()) }, version::current());
-    let Object { id } = account.remove_managed_asset(Key {}, version_witness::new_for_testing(@0xDE9));
+    account.add_managed_asset(Key {}, Asset { id: object::new(scenario.ctx()) }, version::current());
+    let Asset { id } = account.remove_managed_asset(Key {}, version_witness::new_for_testing(@0xDE9));
     id.delete();
 
     end(scenario, extensions, account);
@@ -780,22 +622,25 @@ fun test_error_cannot_execute_intent_from_not_dependent_package() {
     let (mut scenario, extensions, mut account) = start();
     let clock = clock::create_for_testing(scenario.ctx());
 
-    let intent = account.create_intent(
+    let params = intents::new_params(
         b"one".to_string(), 
-        b"".to_string(), 
-        vector[0], 
+        b"description".to_string(), 
+        vector[0],
         1, 
-        b"".to_string(), 
+        &clock,
+    );
+    let intent = account.create_intent(
+        params,
         Outcome {}, 
-        version::current(), 
+        b"Degen".to_string(),
+        version::current(),
         DummyIntent(), 
         scenario.ctx()
     );
-    account.add_intent(intent, version::current(), DummyIntent());
-    let (executable, outcome) = account.execute_intent<Config, Outcome, Witness>(b"one".to_string(), &clock, version_witness::new_for_testing(@0xDE9), Witness());
+    account.insert_intent(intent, version::current(), DummyIntent());
+    let (_, executable) = account.create_executable<Config, Outcome, Witness>(b"one".to_string(), &clock, version_witness::new_for_testing(@0xDE9), Witness());
 
     destroy(executable);
-    destroy(outcome);
     destroy(clock);
     end(scenario, extensions, account);
 }
@@ -805,22 +650,25 @@ fun test_error_cannot_execute_intent_not_called_from_config_module() {
     let (mut scenario, extensions, mut account) = start();
     let clock = clock::create_for_testing(scenario.ctx());
 
-    let intent = account.create_intent(
+    let params = intents::new_params(
         b"one".to_string(), 
-        b"".to_string(), 
-        vector[0], 
+        b"description".to_string(), 
+        vector[0],
         1, 
-        b"".to_string(), 
+        &clock,
+    );
+    let intent = account.create_intent(
+        params,
         Outcome {}, 
-        version::current(), 
+        b"Degen".to_string(),
+        version::current(),
         DummyIntent(), 
         scenario.ctx()
     );
-    account.add_intent(intent, version::current(), DummyIntent());
-    let (executable, outcome) = account.execute_intent<Config, Outcome, account::Witness>(b"one".to_string(), &clock, version::current(), account::not_config_witness());
+    account.insert_intent(intent, version::current(), DummyIntent());
+    let (_, executable) = account.create_executable<Config, Outcome, account::Witness>(b"one".to_string(), &clock, version::current(), account::not_config_witness());
 
     destroy(executable);
-    destroy(outcome);
     destroy(clock);
     end(scenario, extensions, account);
 }
@@ -830,22 +678,25 @@ fun test_error_cannot_execute_intent_before_execution_time() {
     let (mut scenario, extensions, mut account) = start();
     let clock = clock::create_for_testing(scenario.ctx());
 
-    let intent = account.create_intent(
+    let params = intents::new_params(
         b"one".to_string(), 
-        b"".to_string(), 
-        vector[1], 
+        b"description".to_string(), 
+        vector[1],
         1, 
-        b"".to_string(), 
+        &clock,
+    );
+    let intent = account.create_intent(
+        params,
         Outcome {}, 
-        version::current(), 
+        b"Degen".to_string(),
+        version::current(),
         DummyIntent(), 
         scenario.ctx()
     );
-    account.add_intent(intent, version::current(), DummyIntent());
-    let (executable, outcome) = account.execute_intent<Config, Outcome, Witness>(b"one".to_string(), &clock, version::current(), Witness());
+    account.insert_intent(intent, version::current(), DummyIntent());
+    let (_, executable) = account.create_executable<Config, Outcome, Witness>(b"one".to_string(), &clock, version::current(), Witness());
 
     destroy(executable);
-    destroy(outcome);
     destroy(clock);
     end(scenario, extensions, account);
 }

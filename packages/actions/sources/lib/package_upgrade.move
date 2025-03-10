@@ -239,7 +239,7 @@ public fun confirm_upgrade<Config, Outcome: store, IW: copy + drop>(
 ) {
     // same checks as in `account.process_action()`
     account.deps().check(version_witness);
-    executable.issuer().assert_is_intent(intent_witness);
+    executable.issuer().assert_is_witness(intent_witness);
     executable.issuer().assert_is_account(account.addr());
 
     let key = executable.issuer().intent_key();

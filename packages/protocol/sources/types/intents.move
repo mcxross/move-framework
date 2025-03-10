@@ -71,6 +71,8 @@ public struct Intent<Outcome> has store {
 
 /// Hot potato wrapping actions from an intent that expired or has been executed
 public struct Expired {
+    // address of the account that created the intent
+    account: address,
     // index of the first action in the bag
     start_index: u64,
     // actions that expired
@@ -111,7 +113,7 @@ public fun add_action<Outcome, Action: store, IW: drop>(
     action: Action,
     intent_witness: IW,
 ) {
-    intent.assert_is_intent(intent_witness);
+    intent.assert_is_witness(intent_witness);
 
     let idx = intent.actions().length();
     intent.actions_mut().add(idx, action);
@@ -157,12 +159,28 @@ public fun get_mut<Outcome: store>(intents: &mut Intents, key: String): &mut Int
     intents.inner.borrow_mut(key)
 }
 
+public fun type_<Outcome>(intent: &Intent<Outcome>): TypeName {
+    intent.type_
+}
+
+public fun key<Outcome>(intent: &Intent<Outcome>): String {
+    intent.key
+}
+
 public fun description<Outcome>(intent: &Intent<Outcome>): String {
     intent.description
 }
 
+public fun account<Outcome>(intent: &Intent<Outcome>): address {
+    intent.account
+}
+
 public fun creator<Outcome>(intent: &Intent<Outcome>): address {
     intent.creator
+}
+
+public fun creation_time<Outcome>(intent: &Intent<Outcome>): u64 {
+    intent.creation_time
 }
 
 public fun execution_times<Outcome>(intent: &Intent<Outcome>): vector<u64> {
@@ -193,6 +211,11 @@ public fun outcome_mut<Outcome>(intent: &mut Intent<Outcome>): &mut Outcome {
     &mut intent.outcome
 }
 
+public use fun expired_account as Expired.account;
+public fun expired_account(expired: &Expired): address {
+    expired.account
+}
+
 public use fun expired_start_index as Expired.start_index;
 public fun expired_start_index(expired: &Expired): u64 {
     expired.start_index
@@ -210,11 +233,16 @@ public fun assert_is_account<Outcome>(
     assert!(intent.account == account_addr, EWrongAccount);
 }
 
-public fun assert_is_intent<Outcome, IW: drop>(
+public fun assert_is_witness<Outcome, IW: drop>(
     intent: &Intent<Outcome>,
     _: IW,
 ) {
     assert!(intent.type_ == type_name::get<IW>(), EWrongWitness);
+}
+
+public use fun assert_expired_is_account as Expired.assert_is_account;
+public fun assert_expired_is_account(expired: &Expired, account_addr: address) {
+    assert!(expired.account == account_addr, EWrongAccount);
 }
 
 public fun assert_single_execution(params: Params) {
@@ -298,9 +326,9 @@ public(package) fun destroy_intent<Outcome: store + drop>(
     intents: &mut Intents,
     key: String,
 ): Expired {
-    let Intent<Outcome> { actions, .. } = intents.inner.remove(key);
+    let Intent<Outcome> { account, actions, .. } = intents.inner.remove(key);
     
-    Expired { start_index: 0, actions }
+    Expired { account, start_index: 0, actions }
 }
 
 // === Private functions ===

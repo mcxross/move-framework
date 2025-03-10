@@ -38,11 +38,11 @@ public(package) fun new<Outcome: store>(intent: Intent<Outcome>): Executable<Out
 }
 
 /// Returns the next action 
-public fun get_action<Outcome: store, Action: store, IW: drop>(
+public fun next_action<Outcome: store, Action: store, IW: drop>(
     executable: &mut Executable<Outcome>,
     intent_witness: IW,
 ): &Action {
-    executable.intent.assert_is_intent(intent_witness);
+    executable.intent.assert_is_witness(intent_witness);
 
     let action_idx = executable.action_idx;
     executable.action_idx = executable.action_idx + 1;
