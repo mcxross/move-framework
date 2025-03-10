@@ -8,12 +8,25 @@ module account_protocol::action_interface;
 // === Imports ===
 
 use account_protocol::{
-    account::Account,
     intents::Intent,
     executable::Executable,
 };
 
 // === Public functions ===
+
+/// Example implementation:
+/// 
+/// ```move
+/// 
+/// public fun new_action_name<Config, Outcome, IW: drop>(
+///     intent: &mut Intent<Outcome>, 
+///     <ACTION_ARGS>,
+///     intent_witness: IW,
+/// ) {
+///     intent.init_action!(intent_witness, || Action { <ACTION_ARGS> });
+/// }
+/// 
+/// ```
 
 /// Adds an instantiated action into an Intent.
 public macro fun init_action<$Outcome, $Action: store, $IW: drop>(
@@ -26,16 +39,30 @@ public macro fun init_action<$Outcome, $Action: store, $IW: drop>(
     intent.add_action(action, $intent_witness);
 }
 
+/// Example implementation:
+/// 
+/// ```move
+/// 
+/// public fun do_action_name<Outcome: store, IW: drop>(
+///     executable: &mut Executable<Outcome>,
+///     intent_witness: IW,
+/// ): T {
+///     executable.do_action!( 
+///         intent_witness,
+///         |action: &Action| <DO_SOMETHING_WITH_ACTION>,
+///     );
+/// }
+/// 
+/// ```
+
 /// Execute an action using the Executable hot potato.
-public macro fun do_action<$Config, $Outcome, $Action: store>(
+public macro fun do_action<$Outcome, $Action: store, $IW: drop>(
     $executable: &mut Executable<$Outcome>,
-    $account: &Account<$Config>,
+    $intent_witness: $IW,
     $do_action: |&$Action| -> (),
 ) {
-    let account = $account;
     let executable = $executable;
 
-    executable.intent().issuer().assert_is_account(account.addr());
-    let action = executable.get_action();
+    let action = executable.get_action($intent_witness);
     $do_action(action);
 }

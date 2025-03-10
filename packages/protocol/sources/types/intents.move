@@ -9,13 +9,13 @@ module account_protocol::intents;
 
 use std::{
     string::String,
-    type_name,
+    type_name::{Self, TypeName},
 };
 use sui::{
     bag::{Self, Bag},
     vec_set::{Self, VecSet},
+    clock::Clock,
 };
-use account_protocol::issuer::Issuer;
 
 // === Errors ===
 
@@ -26,6 +26,9 @@ const ENoExecutionTime: u64 = 3;
 const EExecutionTimesNotAscending: u64 = 4;
 const EActionsNotEmpty: u64 = 5;
 const EKeyAlreadyExists: u64 = 6;
+const EWrongAccount: u64 = 7;
+const EWrongWitness: u64 = 8;
+const ESingleExecution: u64 = 9;
 
 // === Structs ===
 
@@ -40,14 +43,18 @@ public struct Intents has store {
 /// Child struct, intent owning a sequence of actions requested to be executed
 /// Outcome is a custom struct depending on the config
 public struct Intent<Outcome> has store {
-    // module that issued the intent and must destroy it
-    issuer: Issuer,
+    // type of the intent, checked against the witness to ensure correct execution
+    type_: TypeName,
     // name of the intent, serves as a key, should be unique
     key: String,
     // what this intent aims to do, for informational purpose
     description: String,
+    // address of the account that created the intent
+    account: address,
     // address of the user that created the intent
     creator: address,
+    // timestamp of the intent creation
+    creation_time: u64,
     // proposer can add a timestamp_ms before which the intent can't be executed
     // can be used to schedule actions via a backend
     // recurring intents can be executed at these times
@@ -64,39 +71,66 @@ public struct Intent<Outcome> has store {
 
 /// Hot potato wrapping actions from an intent that expired or has been executed
 public struct Expired {
-    // key of the intent that expired
-    key: String,
-    // issuer of the intent that expired
-    issuer: Issuer,
     // index of the first action in the bag
     start_index: u64,
     // actions that expired
     actions: Bag
 }
 
+/// Params of an intent to reduce boilerplate.
+public struct Params has copy, drop, store {
+    key: String,
+    description: String,
+    creation_time: u64,
+    execution_times: vector<u64>,
+    expiration_time: u64,
+}
+
 // === Public functions ===
 
-/// Adds an action to the intent.
+public fun new_params(
+    key: String,
+    description: String,
+    execution_times: vector<u64>,
+    expiration_time: u64,
+    clock: &Clock,
+): Params {
+    assert!(!execution_times.is_empty(), ENoExecutionTime);
+    let mut i = 0;
+    while (i < vector::length(&execution_times) - 1) {
+        assert!(execution_times[i] < execution_times[i + 1], EExecutionTimesNotAscending);
+        i = i + 1;
+    };
+    
+    let creation_time = clock.timestamp_ms();
+    Params { key, description, creation_time, execution_times, expiration_time }
+}
+
 public fun add_action<Outcome, Action: store, IW: drop>(
     intent: &mut Intent<Outcome>,
     action: Action,
     intent_witness: IW,
 ) {
-    intent.issuer().assert_is_intent(intent_witness);
+    intent.assert_is_intent(intent_witness);
 
     let idx = intent.actions().length();
     intent.actions_mut().add(idx, action);
 }
 
-/// Returns an action from the intent.
-public fun get_action<Outcome, Action: store, IW: drop>(
-    intent: &Intent<Outcome>,
-    idx: u64,
-    intent_witness: IW,
-): &Action {
-    intent.issuer().assert_is_intent(intent_witness);
+public fun remove_action<Action: store>(
+    expired: &mut Expired, 
+): Action {
+    let idx = expired.start_index;
+    expired.start_index = idx + 1;
 
-    intent.actions().borrow(idx)
+    expired.actions.remove(idx)
+}
+
+public use fun destroy_empty_expired as Expired.destroy_empty;
+public fun destroy_empty_expired(expired: Expired) {
+    let Expired { actions, .. } = expired;
+    assert!(actions.is_empty(), EActionsNotEmpty);
+    actions.destroy_empty();
 }
 
 // === View functions ===
@@ -118,14 +152,9 @@ public fun get<Outcome: store>(intents: &Intents, key: String): &Intent<Outcome>
     intents.inner.borrow(key)
 }
 
-/// safe because &mut Intent is only accessible in core deps
 public fun get_mut<Outcome: store>(intents: &mut Intents, key: String): &mut Intent<Outcome> {
     assert!(intents.inner.contains(key), EIntentNotFound);
     intents.inner.borrow_mut(key)
-}
-
-public fun issuer<Outcome>(intent: &Intent<Outcome>): &Issuer {
-    &intent.issuer
 }
 
 public fun description<Outcome>(intent: &Intent<Outcome>): String {
@@ -152,7 +181,6 @@ public fun actions<Outcome>(intent: &Intent<Outcome>): &Bag {
     &intent.actions
 }
 
-/// safe because &mut intent is only accessible in core deps
 public fun actions_mut<Outcome>(intent: &mut Intent<Outcome>): &mut Bag {
     &mut intent.actions
 }
@@ -161,19 +189,8 @@ public fun outcome<Outcome>(intent: &Intent<Outcome>): &Outcome {
     &intent.outcome
 }
 
-/// safe because &mut intent is only accessible in core deps
 public fun outcome_mut<Outcome>(intent: &mut Intent<Outcome>): &mut Outcome {
     &mut intent.outcome
-}
-
-public use fun expired_key as Expired.key;
-public fun expired_key(expired: &Expired): String {
-    expired.key
-}
-
-public use fun expired_issuer as Expired.issuer;
-public fun expired_issuer(expired: &Expired): &Issuer {
-    &expired.issuer
 }
 
 public use fun expired_start_index as Expired.start_index;
@@ -186,22 +203,22 @@ public fun expired_actions(expired: &Expired): &Bag {
     &expired.actions
 }
 
-// === Intent functions ===
-
-public fun remove_action<Action: store>(
-    expired: &mut Expired, 
-): Action {
-    let idx = expired.start_index;
-    expired.start_index = idx + 1;
-
-    expired.actions.remove(idx)
+public fun assert_is_account<Outcome>(
+    intent: &Intent<Outcome>,
+    account_addr: address,
+) {
+    assert!(intent.account == account_addr, EWrongAccount);
 }
 
-public use fun destroy_empty_expired as Expired.destroy_empty;
-public fun destroy_empty_expired(expired: Expired) {
-    let Expired { actions, .. } = expired;
-    assert!(actions.is_empty(), EActionsNotEmpty);
-    actions.destroy_empty();
+public fun assert_is_intent<Outcome, IW: drop>(
+    intent: &Intent<Outcome>,
+    _: IW,
+) {
+    assert!(intent.type_ == type_name::get<IW>(), EWrongWitness);
+}
+
+public fun assert_single_execution(params: Params) {
+    assert!(params.execution_times.length() == 1, ESingleExecution);
 }
 
 // === Package functions ===
@@ -212,45 +229,32 @@ public(package) fun empty(ctx: &mut TxContext): Intents {
     Intents { inner: bag::new(ctx), locked: vec_set::empty() }
 }
 
-public(package) fun new_role<IW: drop>(managed_name: String, _intent_witness: &IW): String {
-    let intent_type = type_name::get<IW>();
-    let mut role = intent_type.get_address().to_string();
-    role.append_utf8(b"::");
-    role.append(intent_type.get_module().to_string());
-
-    if (!managed_name.is_empty()) {
-        role.append_utf8(b"::");
-        role.append(managed_name);
-    };
-
-    role
-}
-
-public(package) fun new_intent<Outcome>(
-    issuer: Issuer,
-    key: String,
-    description: String,
-    execution_times: vector<u64>, // timestamp in ms
-    expiration_time: u64,
-    role: String,
+public(package) fun new_intent<Outcome, IW: drop>(
+    params: Params,
     outcome: Outcome,
+    managed_name: String,
+    account_addr: address,
+    _intent_witness: IW,
     ctx: &mut TxContext
 ): Intent<Outcome> {
-    assert!(!execution_times.is_empty(), ENoExecutionTime);
-    let mut i = 0;
-    while (i < vector::length(&execution_times) - 1) {
-        assert!(execution_times[i] < execution_times[i + 1], EExecutionTimesNotAscending);
-        i = i + 1;
-    };
+    let Params { 
+        key, 
+        description, 
+        creation_time, 
+        execution_times, 
+        expiration_time 
+    } = params;
 
     Intent<Outcome> { 
-        issuer,
+        type_: type_name::get<IW>(),
         key,
         description,
+        account: account_addr,
         creator: ctx.sender(),
+        creation_time,
         execution_times,
         expiration_time,
-        role,
+        role: new_role<IW>(managed_name),
         actions: bag::new(ctx),
         outcome
     }
@@ -294,7 +298,23 @@ public(package) fun destroy_intent<Outcome: store + drop>(
     intents: &mut Intents,
     key: String,
 ): Expired {
-    let Intent<Outcome> { issuer, key, actions, .. } = intents.inner.remove(key);
+    let Intent<Outcome> { actions, .. } = intents.inner.remove(key);
     
-    Expired { key, issuer, start_index: 0, actions }
+    Expired { start_index: 0, actions }
+}
+
+// === Private functions ===
+
+fun new_role<IW: drop>(managed_name: String): String {
+    let intent_type = type_name::get<IW>();
+    let mut role = intent_type.get_address().to_string();
+    role.append_utf8(b"::");
+    role.append(intent_type.get_module().to_string());
+
+    if (!managed_name.is_empty()) {
+        role.append_utf8(b"::");
+        role.append(managed_name);
+    };
+
+    role
 }

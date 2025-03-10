@@ -14,9 +14,13 @@ use account_protocol::{
     account::{Account, Auth},
     intents::{Intent, Expired},
     executable::Executable,
-    version_witness::VersionWitness,
+    action_interface,
 };
 
+// === Aliases ===
+
+use fun action_interface::init_action as Intent.init_action;
+use fun action_interface::do_action as Executable.do_action;
 
 // === Errors ===
 
@@ -37,31 +41,27 @@ public struct WithdrawAction has store {
 public fun new_withdraw<Config, Outcome, IW: drop>(
     intent: &mut Intent<Outcome>, 
     account: &mut Account<Config>,
-    object_id: ID, 
-    version_witness: VersionWitness,
+    object_id: ID,
     intent_witness: IW,
 ) {
     account.lock_object(object_id);
-    // account.add_action!(intent, WithdrawAction { object_id }, version_witness, intent_witness);
+    intent.init_action!(intent_witness, || WithdrawAction { object_id });
 }
 
 /// Executes a WithdrawAction and returns the object
-// public fun do_withdraw<Config, Outcome: store, T: key + store, IW: copy + drop>(
-//     action: &WithdrawAction,
-//     account: &mut Account<Config>,  
-//     receiving: Receiving<T>,
-//     version_witness: VersionWitness,   
-//     intent_witness: IW,
-// ): T {
-//     account.process_action!<_, Outcome, WithdrawAction, _>(
-//         executable, 
-//         version_witness, 
-//         intent_witness, 
-//     );
-//         |action| assert!(receiving.receiving_object_id() == action.object_id, EWrongObject),
-    
-//     account.receive(receiving)
-// }
+public fun do_withdraw<Config, Outcome: store, T: key + store, IW: drop>(
+    executable: &mut Executable<Outcome>,
+    account: &mut Account<Config>,  
+    receiving: Receiving<T>,
+    intent_witness: IW,
+): T {
+    executable.do_action!( 
+        intent_witness,
+        |action: &WithdrawAction| assert!(receiving.receiving_object_id() == action.object_id, EWrongObject),
+    );
+
+    account.receive(receiving)
+}
 
 /// Deletes a WithdrawAction from an expired intent
 public fun delete_withdraw<Config>(

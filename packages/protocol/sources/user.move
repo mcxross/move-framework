@@ -116,7 +116,7 @@ public fun reorder_accounts<Config>(user: &mut User, addrs: vector<address>) {
     let account_type = type_name::get<Config>().into_string().to_string();
     assert!(user.accounts.contains(&account_type), ENoAccountsToReorder);
 
-    let mut accounts = user.accounts.get_mut(&account_type);
+    let accounts = user.accounts.get_mut(&account_type);
 
     assert!(accounts.length() == addrs.length(), EWrongNumberOfAccounts);
     assert!(!accounts.is_empty(), ENoAccountsToReorder);

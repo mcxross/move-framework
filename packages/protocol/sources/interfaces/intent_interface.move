@@ -10,7 +10,7 @@ module account_protocol::intent_interface;
 use std::string::String;
 use account_protocol::{
     account::Account,
-    intents::Intent,
+    intents::{Intent, Params},
     version_witness::VersionWitness,
     executable::Executable,
 };
@@ -21,19 +21,39 @@ use account_protocol::{
 /// 
 /// ```move
 /// 
+/// public fun request_intent_name<Config, Outcome: store>(
+///     auth: Auth,
+///     account: &mut Account<Config>, 
+///     params: Params,
+///     outcome: Outcome,
+///     <ACTION_ARGS>,
+///     ctx: &mut TxContext
+/// ) {
+///     account.verify(auth);
+///     params.assert_single_execution(); // if not a recurring intent
 /// 
+///     account.build_intent!(
+///         params,
+///         outcome, 
+///         b"".to_string(),
+///         version::current(),
+///         IntentWitness(),   
+///         ctx,
+///         |intent| {
+///             new_action(intent, <ACTION_ARGS>)
+///             new_other_action(intent)
+///         }
+///     );
+/// }
 /// 
 /// ```
 
 /// Creates an intent with actions and adds it to the account.
 public macro fun build_intent<$Config, $Outcome, $IW: drop>(
     $account: &mut Account<$Config>,
-    $key: String,
-    $description: String,
-    $execution_times: vector<u64>,
-    $expiration_time: u64,
-    $managed_name: String,
+    $params: Params,
     $outcome: $Outcome,
+    $managed_name: String,
     $version_witness: VersionWitness,
     $intent_witness: $IW,
     $ctx: &mut TxContext,
@@ -42,12 +62,9 @@ public macro fun build_intent<$Config, $Outcome, $IW: drop>(
     let account = $account;
 
     let mut intent = account.create_intent(
-        $key, 
-        $description,
-        $execution_times,
-        $expiration_time,
-        $managed_name,
+        $params,
         $outcome,
+        $managed_name,
         $version_witness,
         $intent_witness,
         $ctx 
@@ -57,6 +74,27 @@ public macro fun build_intent<$Config, $Outcome, $IW: drop>(
 
     account.add_intent(intent, $version_witness, $intent_witness);
 }
+
+/// Example implementation:
+/// 
+/// ```move
+/// 
+/// public fun execute_intent_name<Config, Outcome: store>(
+///     executable: &mut Executable<Outcome>,
+///     account: &mut Account<Config>,  
+/// ) {
+///     account.process_intent!(
+///         executable, 
+///         version::current(),   
+///         ConfigDepsIntent(), 
+///         |executable| {
+///             do_action(executable, <ADDITIONAL_ARG>)
+///             do_other_action(executable)
+///         }
+///     ); 
+/// } 
+/// 
+/// ```
 
 /// Executes the actions from the executable intent.
 public macro fun process_intent<$Config, $Outcome: store, $IW: drop>(
@@ -73,9 +111,9 @@ public macro fun process_intent<$Config, $Outcome: store, $IW: drop>(
     // ensures the package address is a dependency for this account
     account.deps().check($version_witness);
     // ensures the right account is passed
-    executable.intent().issuer().assert_is_account(account.addr());
+    executable.intent().assert_is_account(account.addr());
     // ensures the intent is created by the same package that creates the action
-    executable.intent().issuer().assert_is_intent($intent_witness);
+    executable.intent().assert_is_intent($intent_witness);
 
     $do_actions(executable);
 }

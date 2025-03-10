@@ -18,22 +18,6 @@ public struct Executable<Outcome: store> {
     action_idx: u64,
 }
 
-// === Public functions ===
-
-// public macro fun process<>(
-//     $executable: &mut Executable,
-//     $actions: &Bag,
-//     $do_actions: |_|
-// ) {
-//     let executable = $executable;
-//     let actions = $actions;
-
-//     let action_idx = executable.next_action();
-//     let action = *actions.borrow(action_idx);
-
-//     $do_actions(action);
-// }
-
 // === View functions ===
 
 /// Returns the issuer of the corresponding intent
@@ -54,9 +38,12 @@ public(package) fun new<Outcome: store>(intent: Intent<Outcome>): Executable<Out
 }
 
 /// Returns the next action 
-public fun get_action<Outcome: store, Action: store>(
+public fun get_action<Outcome: store, Action: store, IW: drop>(
     executable: &mut Executable<Outcome>,
+    intent_witness: IW,
 ): &Action {
+    executable.intent.assert_is_intent(intent_witness);
+
     let action_idx = executable.action_idx;
     executable.action_idx = executable.action_idx + 1;
     
