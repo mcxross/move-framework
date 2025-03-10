@@ -6,45 +6,65 @@ module account_protocol::executable;
 
 // === Imports ===
 
-use account_protocol::issuer::Issuer;
+use account_protocol::intents::Intent;
 
 // === Structs ===
 
 /// Hot potato ensuring the actions in the intent are executed as intended.
-public struct Executable {
-    // issuer of the corresponding intent
-    issuer: Issuer,
+public struct Executable<Outcome: store> {
+    // intent to return or destroy (if execution_times empty) after execution
+    intent: Intent<Outcome>,
     // current action index
     action_idx: u64,
 }
 
+// === Public functions ===
+
+// public macro fun process<>(
+//     $executable: &mut Executable,
+//     $actions: &Bag,
+//     $do_actions: |_|
+// ) {
+//     let executable = $executable;
+//     let actions = $actions;
+
+//     let action_idx = executable.next_action();
+//     let action = *actions.borrow(action_idx);
+
+//     $do_actions(action);
+// }
+
 // === View functions ===
 
 /// Returns the issuer of the corresponding intent
-public fun issuer(executable: &Executable): &Issuer {
-    &executable.issuer
+public fun intent<Outcome: store>(executable: &Executable<Outcome>): &Intent<Outcome> {
+    &executable.intent
 }
 
 /// Returns the current action index
-public fun action_idx(executable: &Executable): u64 {
+public fun action_idx<Outcome: store>(executable: &Executable<Outcome>): u64 {
     executable.action_idx
 }
 
 // === Package functions ===
 
-/// Creates a new executable from an issuer
-public(package) fun new(issuer: Issuer): Executable {
-    Executable { issuer, action_idx: 0 }
+/// Creates a new executable from an intent
+public(package) fun new<Outcome: store>(intent: Intent<Outcome>): Executable<Outcome> {
+    Executable { intent, action_idx: 0 }
 }
 
-/// Returns the next action index
-public(package) fun next_action(executable: &mut Executable): u64 {
+/// Returns the next action 
+public fun get_action<Outcome: store, Action: store>(
+    executable: &mut Executable<Outcome>,
+): &Action {
     let action_idx = executable.action_idx;
     executable.action_idx = executable.action_idx + 1;
-    action_idx
+    
+    executable.intent().actions().borrow(action_idx)
 }
 
 /// Destroys the executable
-public(package) fun destroy(executable: Executable) {
-    let Executable { .. } = executable;
+public(package) fun destroy<Outcome: store>(executable: Executable<Outcome>): Intent<Outcome> {
+    let Executable { intent, .. } = executable;
+    intent
 }

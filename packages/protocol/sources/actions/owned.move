@@ -34,7 +34,7 @@ public struct WithdrawAction has store {
 // === Public functions ===
 
 /// Creates a new WithdrawAction and add it to an intent
-public fun new_withdraw<Config, Outcome, IW: copy + drop>(
+public fun new_withdraw<Config, Outcome, IW: drop>(
     intent: &mut Intent<Outcome>, 
     account: &mut Account<Config>,
     object_id: ID, 
@@ -42,22 +42,26 @@ public fun new_withdraw<Config, Outcome, IW: copy + drop>(
     intent_witness: IW,
 ) {
     account.lock_object(object_id);
-    account.add_action(intent, WithdrawAction { object_id }, version_witness, intent_witness);
+    // account.add_action!(intent, WithdrawAction { object_id }, version_witness, intent_witness);
 }
 
 /// Executes a WithdrawAction and returns the object
-public fun do_withdraw<Config, Outcome: store, T: key + store, IW: copy + drop>(
-    executable: &mut Executable,
-    account: &mut Account<Config>, 
-    receiving: Receiving<T>,
-    version_witness: VersionWitness,
-    intent_witness: IW,
-): T {
-    let action = account.process_action<_, Outcome, WithdrawAction, _>(executable, version_witness, intent_witness);
-    assert!(receiving.receiving_object_id() == action.object_id, EWrongObject);
+// public fun do_withdraw<Config, Outcome: store, T: key + store, IW: copy + drop>(
+//     action: &WithdrawAction,
+//     account: &mut Account<Config>,  
+//     receiving: Receiving<T>,
+//     version_witness: VersionWitness,   
+//     intent_witness: IW,
+// ): T {
+//     account.process_action!<_, Outcome, WithdrawAction, _>(
+//         executable, 
+//         version_witness, 
+//         intent_witness, 
+//     );
+//         |action| assert!(receiving.receiving_object_id() == action.object_id, EWrongObject),
     
-    account.receive(receiving)
-}
+//     account.receive(receiving)
+// }
 
 /// Deletes a WithdrawAction from an expired intent
 public fun delete_withdraw<Config>(

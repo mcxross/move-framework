@@ -61,7 +61,7 @@ public fun intent_key(issuer: &Issuer): String {
 public(package) fun new<IW: drop>(
     account_addr: address,
     intent_key: String,
-    _intent_witness: IW,
+    _intent_witness: &IW,
 ): Issuer {
     let intent_type = type_name::get<IW>();
     Issuer { account_addr, intent_type, intent_key }

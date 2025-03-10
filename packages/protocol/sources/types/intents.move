@@ -74,6 +74,31 @@ public struct Expired {
     actions: Bag
 }
 
+// === Public functions ===
+
+/// Adds an action to the intent.
+public fun add_action<Outcome, Action: store, IW: drop>(
+    intent: &mut Intent<Outcome>,
+    action: Action,
+    intent_witness: IW,
+) {
+    intent.issuer().assert_is_intent(intent_witness);
+
+    let idx = intent.actions().length();
+    intent.actions_mut().add(idx, action);
+}
+
+/// Returns an action from the intent.
+public fun get_action<Outcome, Action: store, IW: drop>(
+    intent: &Intent<Outcome>,
+    idx: u64,
+    intent_witness: IW,
+): &Action {
+    intent.issuer().assert_is_intent(intent_witness);
+
+    intent.actions().borrow(idx)
+}
+
 // === View functions ===
 
 public fun length(intents: &Intents): u64 {
@@ -127,12 +152,16 @@ public fun actions<Outcome>(intent: &Intent<Outcome>): &Bag {
     &intent.actions
 }
 
+/// safe because &mut intent is only accessible in core deps
+public fun actions_mut<Outcome>(intent: &mut Intent<Outcome>): &mut Bag {
+    &mut intent.actions
+}
+
 public fun outcome<Outcome>(intent: &Intent<Outcome>): &Outcome {
     &intent.outcome
 }
 
 /// safe because &mut intent is only accessible in core deps
-/// only used in AccountMultisig 
 public fun outcome_mut<Outcome>(intent: &mut Intent<Outcome>): &mut Outcome {
     &mut intent.outcome
 }
@@ -157,7 +186,7 @@ public fun expired_actions(expired: &Expired): &Bag {
     &expired.actions
 }
 
-// === intent functions ===
+// === Intent functions ===
 
 public fun remove_action<Action: store>(
     expired: &mut Expired, 
@@ -183,7 +212,7 @@ public(package) fun empty(ctx: &mut TxContext): Intents {
     Intents { inner: bag::new(ctx), locked: vec_set::empty() }
 }
 
-public(package) fun new_role<IW: drop>(managed_name: String, _intent_witness: IW): String {
+public(package) fun new_role<IW: drop>(managed_name: String, _intent_witness: &IW): String {
     let intent_type = type_name::get<IW>();
     let mut role = intent_type.get_address().to_string();
     role.append_utf8(b"::");
@@ -227,21 +256,20 @@ public(package) fun new_intent<Outcome>(
     }
 }
 
-/// Inserts an action to the intent bag
-public(package) fun add_action<Outcome, A: store>(
-    intent: &mut Intent<Outcome>, 
-    action: A, 
-) {
-    let idx = intent.actions.length();
-    intent.actions.add(idx, action);
-}
-
 public(package) fun add_intent<Outcome: store>(
     intents: &mut Intents,
     intent: Intent<Outcome>,
 ) {
     assert!(!intents.contains(intent.key), EKeyAlreadyExists);
     intents.inner.add(intent.key, intent);
+}
+
+public(package) fun remove_intent<Outcome: store>(
+    intents: &mut Intents,
+    key: String,
+): Intent<Outcome> {
+    assert!(intents.contains(key), EIntentNotFound);
+    intents.inner.remove(key)
 }
 
 public(package) fun pop_front_execution_time<Outcome>(

@@ -38,12 +38,11 @@ use sui::{
 use account_protocol::{
     issuer,
     metadata::{Self, Metadata},
-    deps::{Self, Deps},
+    deps::Deps,
     version_witness::VersionWitness,
     intents::{Self, Intents, Intent, Expired},
     executable::{Self, Executable},
 };
-use account_extensions::extensions::Extensions;
 
 // === Errors ===
 
@@ -73,7 +72,7 @@ public struct Account<Config> has key, store {
     config: Config,
 }
 
-/// Protected type ensuring provenance.
+/// Protected type ensuring provenance, authenticate an address to an account.
 public struct Auth {
     // address of the account that created the auth
     account_addr: address,
@@ -85,57 +84,23 @@ fun init(otw: ACCOUNT, ctx: &mut TxContext) {
     package::claim_and_keep(otw, ctx); // to create Display objects in the future
 }
 
-/// Creates a new Account object, called from a config module defining a new account type.
-public fun new<Config>(
-    extensions: &Extensions,
-    config: Config, 
-    unverified_deps_allowed: bool,
-    names: vector<String>,
-    addresses: vector<address>,
-    versions: vector<u64>,
-    ctx: &mut TxContext
-): Account<Config> {
-    Account<Config> { 
-        id: object::new(ctx),
-        metadata: metadata::empty(),
-        deps: deps::new(extensions, unverified_deps_allowed, names, addresses, versions),
-        intents: intents::empty(ctx),
-        config,
-    }
-}
-
-/// Helper function to transfer an object to the account.
-public fun keep<Config, T: key + store>(account: &Account<Config>, obj: T) {
-    transfer::public_transfer(obj, account.addr());
-}
-
-/// Unpacks and verifies the Auth matches the account.
-public fun verify<Config>(
-    account: &Account<Config>,
-    auth: Auth,
-) {
-    let Auth { account_addr } = auth;
-
-    assert!(account.addr() == account_addr, EWrongAccount);
-}
-
 // === Deps-only functions ===
 
-/// The following functions are used to compose intents in external modules and packages.
-/// 
-/// The proper instantiation and execution of an intent is ensured by an intent witness.
-/// This is a drop only type defined in the intent module preventing other modules to misuse the intent.
-/// 
-/// Additionally, these functions require a version witness which is a protected type for the protocol. 
-/// It is checked against the dependencies of the account to ensure the package being called is authorized.
-/// VersionWitness is a wrapper around a type defined in the version of the package being called.
-/// It behaves like a witness but it is usable in the entire package instead of in a single module.
+// The following functions are used to compose intents in external modules and packages.
+// 
+// The proper instantiation and execution of an intent is ensured by an intent witness.
+// This is a drop only type defined in the intent module preventing other modules to misuse the intent.
+// 
+// Additionally, these functions require a version witness which is a protected type for the protocol. 
+// It is checked against the dependencies of the account to ensure the package being called is authorized.
+// VersionWitness is a wrapper around a type defined in the version of the package being called.
+// It behaves like a witness but it is usable in the entire package instead of in a single module.
 
 // Intent lib functions - called in intent modules
 
 /// Creates a new intent that must be constructed in another module.
-public fun create_intent<Config, Outcome, IW: copy + drop>(
-    account: &mut Account<Config>, 
+public fun create_intent<Config, Outcome: store, IW: drop>(
+    account: &mut Account<Config>,
     key: String, // intent key
     description: String, // optional description
     execution_times: vector<u64>, // multiple timestamps in ms for recurrent intents (ascending order)
@@ -149,9 +114,9 @@ public fun create_intent<Config, Outcome, IW: copy + drop>(
     // ensures the package address is a dependency for this account
     account.deps().check(version_witness); 
     // set account_addr and intent_type to enforce correct execution
-    let issuer = issuer::new(account.addr(), key, intent_witness);
+    let issuer = issuer::new(account.addr(), key, &intent_witness);
     // creates a role from the intent package id and module name with an optional name
-    let role = intents::new_role<IW>(managed_name, intent_witness);
+    let role = intents::new_role<IW>(managed_name, &intent_witness);
 
     intents::new_intent(
         issuer,
@@ -163,24 +128,6 @@ public fun create_intent<Config, Outcome, IW: copy + drop>(
         outcome,
         ctx
     )
-}
-
-/// Adds an action to the intent.
-public fun add_action<Config, Outcome, Action: store, IW: drop>(
-    account: &Account<Config>, 
-    intent: &mut Intent<Outcome>,
-    action: Action,
-    version_witness: VersionWitness,
-    intent_witness: IW,
-) {
-    // ensures the package address is a dependency of this account
-    account.deps().check(version_witness);
-    // ensures the right account is passed
-    intent.issuer().assert_is_account(account.addr());
-    // ensures the intent is created by the same package that creates the action
-    intent.issuer().assert_is_intent(intent_witness);
-
-    intent.add_action(action);
 }
 
 /// Adds an intent to the account.
@@ -202,42 +149,17 @@ public fun add_intent<Config, Outcome: store, IW: drop>(
 
 // Action lib functions - called in action modules
 
-/// Increases the action index and returns the action.
-public fun process_action<Config, Outcome: store, Action: store, IW: drop>(
-    account: &Account<Config>, 
-    executable: &mut Executable,
-    version_witness: VersionWitness,
-    intent_witness: IW,
-): &Action {
-    // ensures the package address is a dependency for this account
-    account.deps().check(version_witness);
-    // ensures the right account is passed
-    executable.issuer().assert_is_account(account.addr());
-    // ensures the intent is created by the same package that creates the action
-    executable.issuer().assert_is_intent(intent_witness);
-    
-    let key = executable.issuer().intent_key();
-    let action_idx = executable.next_action();
-    account.intents.get<Outcome>(key).actions().borrow(action_idx)
-}
 
 /// Verifies all actions have been processed and destroys the executable.
-public fun confirm_execution<Config, Outcome: store, IW: drop>(
-    account: &Account<Config>, 
-    executable: Executable,
-    version_witness: VersionWitness,
-    intent_witness: IW,
+public fun confirm_execution<Config, Outcome: drop + store>(
+    account: &mut Account<Config>, 
+    executable: Executable<Outcome>,
 ) {
-    // ensures the package address is a dependency for this account
-    account.deps().check(version_witness);
-    // ensures the right account is passed
-    executable.issuer().assert_is_account(account.addr());
-    // ensures the intent is created by the same package that creates the action
-    executable.issuer().assert_is_intent(intent_witness);
-
-    let intent = account.intents.get<Outcome>(executable.issuer().intent_key());
-    assert!(executable.action_idx() == intent.actions().length(), EActionsRemaining);
-    executable.destroy();
+    let actions_length = executable.intent().actions().length();
+    assert!(executable.action_idx() == actions_length, EActionsRemaining);
+    
+    let intent = executable.destroy();
+    account.intents.add_intent(intent);
 }
 
 /// Destroys an intent if it has no remaining execution.
@@ -259,6 +181,21 @@ public fun delete_expired_intent<Config, Outcome: store + drop>(
 ): Expired {
     assert!(clock.timestamp_ms() >= account.intents.get<Outcome>(key).expiration_time(), EHasntExpired);
     account.intents.destroy_intent<Outcome>(key)
+}
+
+/// Helper function to transfer an object to the account.
+public fun keep<Config, T: key + store>(account: &Account<Config>, obj: T) {
+    transfer::public_transfer(obj, account.addr());
+}
+
+/// Unpacks and verifies the Auth matches the account.
+public fun verify<Config>(
+    account: &Account<Config>,
+    auth: Auth,
+) {
+    let Auth { account_addr } = auth;
+
+    assert!(account.addr() == account_addr, EWrongAccount);
 }
 
 /// Managed data and assets:
@@ -377,8 +314,29 @@ public fun remove_managed_asset<Config, K: copy + drop + store, Asset: key + sto
 /// The following functions are used to define account and intent behavior for a specific account type/config.
 /// 
 /// They must be implemented in the module that defines the config of the account, which must be a dependency of the account.
+/// We provide higher level macros to facilitate the implementation of these functions.
 
-/// Returns an Auth object that can be used to call certain functions with the account.
+public fun new<Config, CW: drop>(
+    config: Config, 
+    deps: Deps,
+    version_witness: VersionWitness,
+    config_witness: CW,
+    ctx: &mut TxContext
+): Account<Config> {
+    let account = Account<Config> { 
+        id: object::new(ctx),
+        metadata: metadata::empty(),
+        deps,
+        intents: intents::empty(ctx),
+        config,
+    };
+
+    account.deps().check(version_witness);
+    account.assert_is_config_module(config_witness);
+
+    account
+}
+
 public fun new_auth<Config, CW: drop>(
     account: &Account<Config>,
     version_witness: VersionWitness,
@@ -390,28 +348,26 @@ public fun new_auth<Config, CW: drop>(
     Auth { account_addr: account.addr() }
 }
 
-/// Returns an Executable with the Intent Outcome that must be validated in the config module.
-public fun execute_intent<Config, Outcome: store + copy, CW: drop>(
+public fun create_executable<Config, Outcome: store + copy, CW: drop>(
     account: &mut Account<Config>,
     key: String, 
     clock: &Clock,
     version_witness: VersionWitness,
     config_witness: CW,
-): (Executable, Outcome) {
+): (Outcome, Executable<Outcome>) {
     account.deps().check(version_witness);
     account.assert_is_config_module(config_witness);
 
-    let intent = account.intents.get_mut<Outcome>(key);
+    let mut intent = account.intents.remove_intent<Outcome>(key);
     let time = intent.pop_front_execution_time();
     assert!(clock.timestamp_ms() >= time, ECantBeExecutedYet);
 
     (
-        executable::new(*intent.issuer()), 
-        *intent.outcome()
+        *intent.outcome(),
+        executable::new(intent) 
     )
 }
 
-/// Returns a mutable reference to the intents of the account.
 public fun intents_mut<Config, CW: drop>(
     account: &mut Account<Config>, 
     version_witness: VersionWitness,
@@ -423,7 +379,6 @@ public fun intents_mut<Config, CW: drop>(
     &mut account.intents
 }
 
-/// Returns a mutable reference to the config of the account.
 public fun config_mut<Config, CW: drop>(
     account: &mut Account<Config>, 
     version_witness: VersionWitness,
@@ -448,8 +403,8 @@ public fun metadata<Config>(account: &Account<Config>): &Metadata {
 }
 
 /// Returns the dependencies of the account.
-public fun deps<Config>(account: &Account<Config>): &Deps {
-    &account.deps
+public fun deps<Config>(account: &Account<Config>): Deps {
+    account.deps
 }
 
 /// Returns the intents of the account.

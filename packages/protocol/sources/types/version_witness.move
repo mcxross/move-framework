@@ -14,7 +14,7 @@ use sui::{
 // === Structs ===
 
 /// Witness to check the version of a package.
-public struct VersionWitness has copy, drop {
+public struct VersionWitness has drop {
     // package id where the witness has been created
     package_addr: address,
 }
