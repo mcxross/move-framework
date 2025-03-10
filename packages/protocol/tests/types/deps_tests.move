@@ -70,6 +70,30 @@ fun test_deps_new_and_getters() {
 }
 
 #[test]
+fun test_deps_new_latest_extensions() {
+    let (scenario, extensions) = start();
+
+    let deps = deps::new_latest_extensions(&extensions, vector[b"AccountProtocol".to_string()]);
+    // assertions
+    deps.check(version::current());
+    // deps getters
+    assert!(deps.length() == 1);
+    assert!(deps.contains_name(b"AccountProtocol".to_string()));
+    assert!(deps.contains_addr(@account_protocol));
+    // dep getters
+    let dep = deps.get_by_name(b"AccountProtocol".to_string());
+    assert!(dep.name() == b"AccountProtocol".to_string());
+    assert!(dep.addr() == @account_protocol);
+    assert!(dep.version() == 1);
+    let dep = deps.get_by_addr(@account_protocol);
+    assert!(dep.name() == b"AccountProtocol".to_string());
+    assert!(dep.addr() == @account_protocol);
+    assert!(dep.version() == 1);
+
+    end(scenario, extensions);
+}
+
+#[test]
 fun test_deps_add_unverified_allowed() {
     let (mut scenario, extensions) = start();
     let cap = package::test_publish(@0xA.to_id(), scenario.ctx());

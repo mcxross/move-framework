@@ -276,7 +276,7 @@ fun test_error_cannot_verify_wrong_account() {
     let (mut scenario, extensions, account) = start();
     
     let auth = account.new_auth(version::current(), Witness());
-    let deps = deps::new_from_latest_verified(&extensions, vector[b"AccountProtocol".to_string()]);
+    let deps = deps::new_latest_extensions(&extensions, vector[b"AccountProtocol".to_string()]);
     let account2 = account::new(Config {}, deps, version::current(), Witness(), scenario.ctx());
     account2.verify(auth);
 
@@ -341,7 +341,7 @@ fun test_error_insert_intent_with_wrong_account() {
     let (mut scenario, extensions, mut account) = start();
     let clock = clock::create_for_testing(scenario.ctx());
 
-    let deps = deps::new_from_latest_verified(&extensions, vector[b"AccountProtocol".to_string()]);
+    let deps = deps::new_latest_extensions(&extensions, vector[b"AccountProtocol".to_string()]);
     let mut account2 = account::new(Config {}, deps, version::current(), Witness(), scenario.ctx());
 
     let params = intents::new_params(
@@ -398,7 +398,7 @@ fun test_error_cannot_confirm_execution_with_wrong_account() {
     let (mut scenario, extensions, mut account) = start();
     let clock = clock::create_for_testing(scenario.ctx());
 
-    let deps = deps::new_from_latest_verified(&extensions, vector[b"AccountProtocol".to_string()]);
+    let deps = deps::new_latest_extensions(&extensions, vector[b"AccountProtocol".to_string()]);
     let mut account2 = account::new(Config {}, deps, version::current(), Witness(), scenario.ctx());
 
     let params = intents::new_params(

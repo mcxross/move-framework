@@ -73,7 +73,7 @@ public fun new(
 
 /// Creates a new Deps struct from latest packages for names.
 /// Unverified packages are not allowed after this operation.
-public fun new_from_latest_verified(
+public fun new_latest_extensions(
     extensions: &Extensions,
     names: vector<String>,
 ): Deps {
@@ -89,26 +89,6 @@ public fun new_from_latest_verified(
     });
 
     Deps { inner, unverified_allowed: false }
-}
-
-/// Creates a new Deps struct from latest packages for names.
-/// Unverified packages are allowed after this operation.
-public fun new_from_latest_unverified(
-    extensions: &Extensions,
-    names: vector<String>,
-): Deps {
-    assert!(names[0] == b"AccountProtocol".to_string(), EAccountProtocolMissing);
-
-    let mut inner = vector<Dep>[];
-
-    names.do!(|name| {
-        assert!(!inner.any!(|dep| dep.name == name), EDepAlreadyExists);
-        let (addr, version) = extensions.get_latest_for_name(name);
-        
-        inner.push_back(Dep { name, addr, version });
-    });
-
-    Deps { inner, unverified_allowed: true }
 }
 
 // === View functions ===

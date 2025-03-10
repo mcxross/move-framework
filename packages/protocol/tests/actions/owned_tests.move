@@ -48,7 +48,7 @@ fun start(): (Scenario, Extensions, Account<Config>, Clock) {
     extensions.add(&cap, b"AccountMultisig".to_string(), @0x1, 1);
     extensions.add(&cap, b"AccountActions".to_string(), @0x2, 1);
     // Account generic types are dummy types (bool, bool)
-    let deps = deps::new_from_latest_verified(&extensions, vector[b"AccountProtocol".to_string()]);
+    let deps = deps::new_latest_extensions(&extensions, vector[b"AccountProtocol".to_string()]);
     let account = account::new(Config {}, deps, version::current(), Witness(), scenario.ctx());
     let clock = clock::create_for_testing(scenario.ctx());
     // create world
@@ -220,7 +220,7 @@ fun test_merge_2_coins_and_split() {
 fun test_error_do_withdraw_from_wrong_account() {
     let (mut scenario, extensions, mut account, clock) = start();
 
-    let deps = deps::new_from_latest_verified(&extensions, vector[b"AccountProtocol".to_string()]);
+    let deps = deps::new_latest_extensions(&extensions, vector[b"AccountProtocol".to_string()]);
     let mut account2 = account::new(Config {}, deps, version::current(), Witness(), scenario.ctx());
     let key = b"dummy".to_string();
 
@@ -274,7 +274,7 @@ fun test_error_do_withdraw_from_wrong_constructor_witness() {
 #[test, expected_failure(abort_code = intents::EWrongAccount)]
 fun test_error_delete_withdraw_from_wrong_account() {
     let (mut scenario, extensions, mut account, mut clock) = start();
-    let deps = deps::new_from_latest_verified(&extensions, vector[b"AccountProtocol".to_string()]);
+    let deps = deps::new_latest_extensions(&extensions, vector[b"AccountProtocol".to_string()]);
     let mut account2 = account::new(Config {}, deps, version::current(), Witness(), scenario.ctx());
 
     clock.increment_for_testing(1);

@@ -54,7 +54,7 @@ fun end(scenario: Scenario, registry: Registry, extensions: Extensions) {
 }
 
 fun create_account(extensions: &Extensions, ctx: &mut TxContext): Account<DummyConfig> {
-    let deps = deps::new_from_latest_verified(extensions, vector[b"AccountProtocol".to_string()]);
+    let deps = deps::new_latest_extensions(extensions, vector[b"AccountProtocol".to_string()]);
     account::new(DummyConfig {}, deps, version::current(), Witness(), ctx)
 }
 

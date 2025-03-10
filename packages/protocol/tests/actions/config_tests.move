@@ -46,7 +46,7 @@ fun start(): (Scenario, Extensions, Account<Config>, Clock) {
     // add external dep
     extensions.add(&cap, b"External".to_string(), @0xABC, 1);
 
-    let deps = deps::new_from_latest_verified(&extensions, vector[b"AccountProtocol".to_string()]);
+    let deps = deps::new_latest_extensions(&extensions, vector[b"AccountProtocol".to_string()]);
     let account = account::new(Config {}, deps, version::current(), Witness(), scenario.ctx());
     let clock = clock::create_for_testing(scenario.ctx());
     // create world
