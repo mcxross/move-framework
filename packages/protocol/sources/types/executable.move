@@ -30,6 +30,19 @@ public fun action_idx<Outcome: store>(executable: &Executable<Outcome>): u64 {
     executable.action_idx
 }
 
+public fun contains_action<Outcome: store, Action: store>(
+    executable: &mut Executable<Outcome>,
+): bool {
+    let actions_length = executable.intent().actions().length();
+    let mut contains = false;
+    
+    actions_length.do!<u64>(|i| {
+        if (executable.intent.actions().contains_with_type<u64, Action>(i)) contains = true;
+    });
+
+    contains
+}
+
 // === Package functions ===
 
 /// Creates a new executable from an intent

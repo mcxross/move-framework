@@ -31,6 +31,7 @@ use account_actions::version;
 const ENoLock: u64 = 0;
 const EAlreadyLocked: u64 = 1;
 const EWrongAccount: u64 = 2;
+const ENoReturn: u64 = 3;
 
 // === Structs ===    
 
@@ -41,9 +42,7 @@ public struct CapKey<phantom Cap>() has copy, drop, store;
 public struct BorrowAction<phantom Cap> has store {}
 
 /// This hot potato is created upon approval to ensure the cap is returned.
-public struct Borrowed<phantom Cap> {
-    account_addr: address
-}
+public struct ReturnAction<phantom Cap> has store {}
 
 // === Public functions ===
 
@@ -67,9 +66,14 @@ public fun has_lock<Config, Cap>(
 
 // Intent functions
 
-/// Creates a BorrowAction and adds it to an intent.
+/// Creates and returns a BorrowAction.
 public fun new_borrow<Cap>(): BorrowAction<Cap> {
     BorrowAction<Cap> {}
+}
+
+/// Creates and returns a ReturnAction.
+public fun new_return<Cap>(): ReturnAction<Cap> {
+    ReturnAction<Cap> {}
 }
 
 /// Processes a BorrowAction and returns a Borrowed hot potato and the Cap.
@@ -78,29 +82,33 @@ public fun do_borrow<Config, Outcome: store, Cap: key + store, IW: drop>(
     account: &mut Account<Config>,
     version_witness: VersionWitness,
     intent_witness: IW, 
-): (Borrowed<Cap>, Cap) {
+): Cap {
     assert!(has_lock<_, Cap>(account), ENoLock);
-    
-    let _action: &BorrowAction<Cap> = executable.next_action(intent_witness);
-    let cap = account.remove_managed_asset(CapKey<Cap>(), version_witness);
+    // ensures there is a ReturnAction in the intent
+    assert!(executable.contains_action<_, ReturnAction<Cap>>(), ENoReturn);
 
-    (Borrowed<Cap> { account_addr: account.addr() }, cap)
+    let _action: &BorrowAction<Cap> = executable.next_action(intent_witness);
+    
+    account.remove_managed_asset(CapKey<Cap>(), version_witness)
 }
 
-/// Returns a Cap to the Account and destroys the hot potato.
-public fun return_borrowed<Config, Cap: key + store>(
+/// Returns a Cap to the Account and validates the ReturnAction.
+public fun do_return<Config, Outcome: store, Cap: key + store, IW: drop>(
+    executable: &mut Executable<Outcome>,
     account: &mut Account<Config>,
-    borrow: Borrowed<Cap>,
     cap: Cap,
     version_witness: VersionWitness,
+    intent_witness: IW,
 ) {
-    let Borrowed<Cap> { account_addr } = borrow;
-    assert!(account_addr == account.addr(), EWrongAccount);
-
+    let _action: &ReturnAction<Cap> = executable.next_action(intent_witness);
     account.add_managed_asset(CapKey<Cap>(), cap, version_witness);
 }
 
 /// Deletes a BorrowAction from an expired intent.
 public fun delete_borrow<Cap>(expired: &mut Expired) {
     let BorrowAction<Cap> { .. } = expired.remove_action();
+}
+
+public fun delete_return<Cap>(expired: &mut Expired) {
+    let ReturnAction<Cap> { .. } = expired.remove_action();
 }

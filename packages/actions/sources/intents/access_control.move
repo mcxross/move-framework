@@ -9,7 +9,7 @@ use account_protocol::{
     intent_interface,
 };
 use account_actions::{
-    access_control::{Self as ac, Borrowed, BorrowAction},
+    access_control::{Self as ac, BorrowAction, ReturnAction},
     version,
 };
 
@@ -36,6 +36,7 @@ public fun request_borrow_cap<Config, Outcome: store, Cap>(
     params: Params,
     outcome: Outcome,
     borrow_action: BorrowAction<Cap>,
+    return_action: ReturnAction<Cap>,
     ctx: &mut TxContext
 ) {
     account.verify(auth);
@@ -48,7 +49,10 @@ public fun request_borrow_cap<Config, Outcome: store, Cap>(
         version::current(),
         BorrowCapIntent(),
         ctx,
-        |intent, iw| intent.add_action(borrow_action, iw),
+        |intent, iw| {
+            intent.add_action(borrow_action, iw);
+            intent.add_action(return_action, iw);
+        },
     );
 }
 
@@ -56,7 +60,7 @@ public fun request_borrow_cap<Config, Outcome: store, Cap>(
 public fun execute_borrow_cap<Config, Outcome: store, Cap: key + store>(
     executable: &mut Executable<Outcome>,
     account: &mut Account<Config>,
-): (Borrowed<Cap>, Cap) {
+): Cap {
     account.process_intent!(
         executable, 
         version::current(), 
@@ -66,10 +70,15 @@ public fun execute_borrow_cap<Config, Outcome: store, Cap: key + store>(
 }
 
 /// Completes a BorrowCapIntent, destroys the executable and returns the cap to the account if the matching hot potato is returned.
-public fun complete_borrow_cap<Config, Cap: key + store>(
+public fun execute_return_cap<Config, Outcome: store, Cap: key + store>(
+    executable: &mut Executable<Outcome>,
     account: &mut Account<Config>,
-    borrowed: Borrowed<Cap>, 
-    cap: Cap
+    cap: Cap,
 ) {
-    ac::return_borrowed(account, borrowed, cap, version::current());
+    account.process_intent!(
+        executable, 
+        version::current(), 
+        BorrowCapIntent(), 
+        |executable, iw| ac::do_return(executable, account, cap, version::current(), iw),
+    )
 }
