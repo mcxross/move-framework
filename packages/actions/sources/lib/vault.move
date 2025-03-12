@@ -16,7 +16,7 @@ use sui::{
 };
 use account_protocol::{
     account::{Account, Auth},
-    intents::{Intent, Expired},
+    intents::Expired,
     executable::Executable,
     version_witness::VersionWitness,
 };
@@ -54,6 +54,21 @@ public struct SpendAction<phantom CoinType> has store {
 }
 
 // === Public Functions ===
+
+public use fun deposit_action_name as DepositAction.name;
+public fun deposit_action_name<CoinType>(deposit_action: &DepositAction<CoinType>): String {
+    deposit_action.name
+}
+
+public use fun spend_action_name as SpendAction.name;
+public fun spend_action_name<CoinType>(spend_action: &SpendAction<CoinType>): String {
+    spend_action.name
+}
+
+public use fun spend_action_amount as SpendAction.amount;
+public fun spend_action_amount<CoinType>(spend_action: &SpendAction<CoinType>): u64 {
+    spend_action.amount
+}
 
 /// Authorized address can open a vault.
 public fun open<Config>(
@@ -138,30 +153,22 @@ public fun coin_type_value<CoinType: drop>(vault: &Vault): u64 {
 // Intent functions
 
 /// Creates a DepositAction and adds it to an intent.
-public fun new_deposit<Config, Outcome, CoinType: drop, IW: drop>(
-    intent: &mut Intent<Outcome>,
-    account: &Account<Config>,
-    name: String,
-    amount: u64,
-    version_witness: VersionWitness,
-    intent_witness: IW,
-) {
-    account.add_action(intent, DepositAction<CoinType> { name, amount }, version_witness, intent_witness);
+public fun new_deposit<CoinType>(name: String, amount: u64): DepositAction<CoinType> {
+    DepositAction<CoinType> { name, amount }
 }
 
 /// Processes a DepositAction and deposits a coin to the vault.
-public fun do_deposit<Config, Outcome: store, CoinType: drop, IW: copy + drop>(
-    executable: &mut Executable,
+public fun do_deposit<Config, Outcome: store, CoinType: drop, IW: drop>(
+    executable: &mut Executable<Outcome>,
     account: &mut Account<Config>,
     coin: Coin<CoinType>,
     version_witness: VersionWitness,
     intent_witness: IW,
 ) {
-    let action = account.process_action<_, Outcome, DepositAction<CoinType>, _>(executable, version_witness, intent_witness);
-    let name = action.name;
+    let action: &DepositAction<CoinType> = executable.next_action(intent_witness);
     assert!(action.amount == coin.value());
-    
-    let vault: &mut Vault = account.borrow_managed_data_mut(VaultKey(name), version_witness);
+        
+    let vault: &mut Vault = account.borrow_managed_data_mut(VaultKey(action.name), version_witness);
     if (!vault.coin_type_exists<CoinType>()) {
         vault.bag.add(type_name::get<CoinType>(), coin.into_balance());
     } else {
@@ -176,35 +183,27 @@ public fun delete_deposit<CoinType>(expired: &mut Expired) {
 }
 
 /// Creates a SpendAction and adds it to an intent.
-public fun new_spend<Config, Outcome, CoinType: drop, IW: drop>(
-    intent: &mut Intent<Outcome>,
-    account: &Account<Config>,
-    name: String,
-    amount: u64,
-    version_witness: VersionWitness,
-    intent_witness: IW,
-) {
-    account.add_action(intent, SpendAction<CoinType> { name, amount }, version_witness, intent_witness);
+public fun new_spend<CoinType>(name: String, amount: u64): SpendAction<CoinType> {
+    SpendAction<CoinType> { name, amount }
 }
 
 /// Processes a SpendAction and takes a coin from the vault.
-public fun do_spend<Config, Outcome: store, CoinType: drop, IW: copy + drop>(
-    executable: &mut Executable,
+public fun do_spend<Config, Outcome: store, CoinType: drop, IW: drop>(
+    executable: &mut Executable<Outcome>,
     account: &mut Account<Config>,
     version_witness: VersionWitness,
     intent_witness: IW,
     ctx: &mut TxContext
 ): Coin<CoinType> {
-    let action = account.process_action<_, Outcome, SpendAction<CoinType>, _>(executable, version_witness, intent_witness);
-    let (name, amount) = (action.name, action.amount);
-    
-    let vault: &mut Vault = account.borrow_managed_data_mut(VaultKey(name), version_witness);
+    let action: &SpendAction<CoinType> = executable.next_action(intent_witness);
+        
+    let vault: &mut Vault = account.borrow_managed_data_mut(VaultKey(action.name), version_witness);
     let balance_mut = vault.bag.borrow_mut<_, Balance<_>>(type_name::get<CoinType>());
-    let coin = coin::take(balance_mut, amount, ctx);
+    let coin = coin::take(balance_mut, action.amount, ctx);
 
     if (balance_mut.value() == 0) 
         vault.bag.remove<_, Balance<CoinType>>(type_name::get<CoinType>()).destroy_zero();
-    
+        
     coin
 }
 

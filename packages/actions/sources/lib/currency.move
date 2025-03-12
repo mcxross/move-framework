@@ -12,7 +12,7 @@ use std::{
 use sui::coin::{Coin, TreasuryCap, CoinMetadata};
 use account_protocol::{
     account::{Account, Auth},
-    intents::{Intent, Expired},
+    intents::Expired,
     executable::Executable,
     version_witness::VersionWitness,
 };
@@ -83,6 +83,11 @@ public struct UpdateAction<phantom CoinType> has store {
 }
 
 // === Public functions ===
+
+public use fun mint_action_amount as MintAction.amount;
+public fun mint_action_amount<CoinType>(mint_action: &MintAction<CoinType>): u64 {
+    mint_action.amount
+}
 
 /// Authenticated users can lock a TreasuryCap.
 public fun lock_cap<Config, CoinType>(
@@ -194,8 +199,7 @@ public fun public_burn<Config, CoinType>(
 // Intent functions
 
 /// Creates a DisableAction and adds it to an intent.
-public fun new_disable<Config, Outcome, CoinType, IW: drop>(
-    intent: &mut Intent<Outcome>,
+public fun new_disable<Config, CoinType>(
     account: &Account<Config>,
     mint: bool,
     burn: bool,
@@ -203,31 +207,28 @@ public fun new_disable<Config, Outcome, CoinType, IW: drop>(
     update_name: bool,
     update_description: bool,
     update_icon: bool,
-    version_witness: VersionWitness,
-    intent_witness: IW,
-) {
+): DisableAction<CoinType> {
     assert!(currency::has_cap<_, CoinType>(account), ENoLock);
     assert!(mint || burn || update_symbol || update_name || update_description || update_icon, ENoChange);
-    account.add_action(
-        intent,
-        DisableAction<CoinType> { mint, burn, update_name, update_symbol, update_description, update_icon }, 
-        version_witness, 
-        intent_witness
-    );
+    
+    DisableAction<CoinType> { mint, burn, update_symbol, update_name, update_description, update_icon }
 }
 
 /// Processes a DisableAction and disables the permissions marked as true.
-public fun do_disable<Config, Outcome: store, CoinType, IW: copy + drop>(
-    executable: &mut Executable,
+public fun do_disable<Config, Outcome: store, CoinType, IW: drop>(
+    executable: &mut Executable<Outcome>,
     account: &mut Account<Config>,
     version_witness: VersionWitness,
     intent_witness: IW,
 ) {
-    let action = account.process_action<_, Outcome, DisableAction<CoinType>, _>(executable, version_witness, intent_witness);
+    let action: &DisableAction<CoinType> = executable.next_action(intent_witness);
+
     let (mint, burn, update_symbol, update_name, update_description, update_icon) = 
         (action.mint, action.burn, action.update_symbol, action.update_name, action.update_description, action.update_icon);
+    
     let rules_mut: &mut CurrencyRules<CoinType> = 
         account.borrow_managed_data_mut(CurrencyRulesKey<CoinType>(), version_witness);
+    
     // if disabled, can be true or false, it has no effect
     if (mint) rules_mut.can_mint = false;
     if (burn) rules_mut.can_burn = false;
@@ -243,13 +244,10 @@ public fun delete_disable<CoinType>(expired: &mut Expired) {
 }
 
 /// Creates a MintAction and adds it to an intent.
-public fun new_mint<Config, Outcome, CoinType, IW: drop>(
-    intent: &mut Intent<Outcome>, 
+public fun new_mint<Config, CoinType>(
     account: &Account<Config>, 
     amount: u64,
-    version_witness: VersionWitness,
-    intent_witness: IW,    
-) {
+): MintAction<CoinType> {
     assert!(currency::has_cap<_, CoinType>(account), ENoLock);
 
     let rules: &CurrencyRules<CoinType> = currency::borrow_rules(account);
@@ -257,30 +255,31 @@ public fun new_mint<Config, Outcome, CoinType, IW: drop>(
     let supply = currency::coin_type_supply<_, CoinType>(account);
     if (rules.max_supply().is_some()) assert!(amount + supply <= *rules.max_supply().borrow(), EMaxSupply);
 
-    account.add_action(intent, MintAction<CoinType> { amount }, version_witness, intent_witness);
+    MintAction<CoinType> { amount }
 }
 
 /// Processes a MintAction, mints and returns new coins.
-public fun do_mint<Config, Outcome: store, CoinType, IW: copy + drop>(
-    executable: &mut Executable, 
+public fun do_mint<Config, Outcome: store, CoinType, IW: drop>(
+    executable: &mut Executable<Outcome>, 
     account: &mut Account<Config>,
     version_witness: VersionWitness,
     intent_witness: IW, 
     ctx: &mut TxContext
 ): Coin<CoinType> {
-    let action = account.process_action<_, Outcome, MintAction<CoinType>, _>(executable, version_witness, intent_witness);
-    let amount = action.amount;
+    let action: &MintAction<CoinType> = executable.next_action(intent_witness);
+    
     let total_supply = currency::coin_type_supply<_, CoinType>(account);
     let rules_mut: &mut CurrencyRules<CoinType> = 
         account.borrow_managed_data_mut(CurrencyRulesKey<CoinType>(), version_witness);
-    
+
     assert!(rules_mut.can_mint, EMintDisabled);
-    if (rules_mut.max_supply.is_some()) assert!(amount + total_supply <= *rules_mut.max_supply.borrow(), EMaxSupply);
-    rules_mut.total_minted = rules_mut.total_minted + amount;
-    
+    if (rules_mut.max_supply.is_some()) assert!(action.amount + total_supply <= *rules_mut.max_supply.borrow(), EMaxSupply);
+    rules_mut.total_minted = rules_mut.total_minted + action.amount;
+
     let cap_mut: &mut TreasuryCap<CoinType> = 
         account.borrow_managed_asset_mut(TreasuryCapKey<CoinType>(), version_witness);
-    cap_mut.mint(amount, ctx)
+        
+    cap_mut.mint(action.amount, ctx)  
 }
 
 /// Deletes a MintAction from an expired intent.
@@ -289,39 +288,37 @@ public fun delete_mint<CoinType>(expired: &mut Expired) {
 }
 
 /// Creates a BurnAction and adds it to an intent.
-public fun new_burn<Config, Outcome, CoinType, IW: drop>(
-    intent: &mut Intent<Outcome>, 
+public fun new_burn<Config, CoinType>(
     account: &Account<Config>, 
     amount: u64, 
-    version_witness: VersionWitness,
-    intent_witness: IW
-) {
+): BurnAction<CoinType> {
     assert!(currency::has_cap<_, CoinType>(account), ENoLock);
     let rules: &CurrencyRules<CoinType> = currency::borrow_rules(account);
     assert!(rules.can_burn(), EBurnDisabled);
 
-    account.add_action(intent, BurnAction<CoinType> { amount }, version_witness, intent_witness);
+    BurnAction<CoinType> { amount }
 }
 
 /// Processes a BurnAction, burns coins and returns the amount burned.
-public fun do_burn<Config, Outcome: store, CoinType, IW: copy + drop>(
-    executable: &mut Executable, 
+public fun do_burn<Config, Outcome: store, CoinType, IW: drop>(
+    executable: &mut Executable<Outcome>, 
     account: &mut Account<Config>,
     coin: Coin<CoinType>,
     version_witness: VersionWitness,
     intent_witness: IW, 
 ) {
-    let action = account.process_action<_, Outcome, BurnAction<CoinType>, _>(executable, version_witness, intent_witness);
-    let amount = action.amount;
-    assert!(amount == coin.value(), EWrongValue);
-    
+    let action: &BurnAction<CoinType> = executable.next_action(intent_witness);
+    assert!(action.amount == coin.value(), EWrongValue);
+        
     let rules_mut: &mut CurrencyRules<CoinType> = 
         account.borrow_managed_data_mut(CurrencyRulesKey<CoinType>(), version_witness);
     assert!(rules_mut.can_burn, EBurnDisabled);
-    rules_mut.total_burned = rules_mut.total_burned + amount;
+    
+    rules_mut.total_burned = rules_mut.total_burned + action.amount;
 
     let cap_mut: &mut TreasuryCap<CoinType> = 
         account.borrow_managed_asset_mut(TreasuryCapKey<CoinType>(), version_witness);
+        
     cap_mut.burn(coin);
 }
 
@@ -331,16 +328,13 @@ public fun delete_burn<CoinType>(expired: &mut Expired) {
 }
 
 /// Creates an UpdateAction and adds it to an intent.
-public fun new_update<Config, Outcome, CoinType, IW: drop>(
-    intent: &mut Intent<Outcome>,
+public fun new_update<Config, CoinType>(
     account: &Account<Config>, 
     symbol: Option<ascii::String>,
     name: Option<String>,
     description: Option<String>,
     icon_url: Option<ascii::String>,
-    version_witness: VersionWitness,
-    intent_witness: IW,
-) {
+): UpdateAction<CoinType> {
     assert!(currency::has_cap<_, CoinType>(account), ENoLock);
     assert!(symbol.is_some() || name.is_some() || description.is_some() || icon_url.is_some(), ENoChange);
 
@@ -350,18 +344,18 @@ public fun new_update<Config, Outcome, CoinType, IW: drop>(
     if (!rules.can_update_description()) assert!(description.is_none(), ECannotUpdateDescription);
     if (!rules.can_update_icon()) assert!(icon_url.is_none(), ECannotUpdateIcon);
 
-    account.add_action(intent, UpdateAction<CoinType> { symbol, name, description, icon_url }, version_witness, intent_witness);
+    UpdateAction<CoinType> { symbol, name, description, icon_url }
 }
 
 /// Processes an UpdateAction, updates the CoinMetadata.
-public fun do_update<Config, Outcome: store, CoinType, IW: copy + drop>(
-    executable: &mut Executable,
+public fun do_update<Config, Outcome: store, CoinType, IW: drop>(
+    executable: &mut Executable<Outcome>,
     account: &mut Account<Config>,
     metadata: &mut CoinMetadata<CoinType>,
     version_witness: VersionWitness,
     intent_witness: IW,
 ) {
-    let action = account.process_action<_, Outcome, UpdateAction<CoinType>, _>(executable, version_witness, intent_witness);
+    let action: &UpdateAction<CoinType> = executable.next_action(intent_witness);
     let (symbol, name, description, icon_url) = (action.symbol, action.name, action.description, action.icon_url);
     let rules_mut: &mut CurrencyRules<CoinType> = 
         account.borrow_managed_data_mut(CurrencyRulesKey<CoinType>(), version_witness);

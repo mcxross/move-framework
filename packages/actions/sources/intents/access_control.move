@@ -2,18 +2,21 @@ module account_actions::access_control_intents;
 
 // === Imports ===
 
-use std::{
-    type_name,
-    string::String
-};
 use account_protocol::{
     account::{Account, Auth},
     executable::Executable,
+    intents::Params,
+    intent_interface,
 };
 use account_actions::{
-    access_control::{Self, Borrowed},
+    access_control::{Self as ac, Borrowed, BorrowAction},
     version,
 };
+
+// === Aliases ===
+
+use fun intent_interface::build_intent as Account.build_intent;
+use fun intent_interface::process_intent as Account.process_intent;
 
 // === Errors ===
 
@@ -29,48 +32,44 @@ public struct BorrowCapIntent() has copy, drop;
 /// Creates a BorrowCapIntent and adds it to an Account.
 public fun request_borrow_cap<Config, Outcome: store, Cap>(
     auth: Auth,
-    outcome: Outcome,
     account: &mut Account<Config>,
-    key: String,
-    description: String,
-    execution_times: vector<u64>,
-    expiration_time: u64,
+    params: Params,
+    outcome: Outcome,
+    borrow_action: BorrowAction<Cap>,
     ctx: &mut TxContext
 ) {
     account.verify(auth);
-    assert!(access_control::has_lock<_, Cap>(account), ENoLock);
+    assert!(ac::has_lock<_, Cap>(account), ENoLock);
 
-    let mut intent = account.create_intent(
-        key, 
-        description, 
-        execution_times, 
-        expiration_time, 
-        type_name::get<Cap>().into_string().to_string(),
-        outcome,
+    account.build_intent!(
+        params,
+        outcome, 
+        b"".to_string(),
         version::current(),
-        BorrowCapIntent(), 
-        ctx
+        BorrowCapIntent(),
+        ctx,
+        |intent, iw| intent.add_action(borrow_action, iw),
     );
-
-    access_control::new_borrow<_, _, Cap, _>(&mut intent, account, version::current(), BorrowCapIntent());
-    account.add_intent(intent, version::current(), BorrowCapIntent());
 }
 
 /// Executes a BorrowCapIntent, returns a cap and a hot potato.
 public fun execute_borrow_cap<Config, Outcome: store, Cap: key + store>(
-    executable: &mut Executable,
+    executable: &mut Executable<Outcome>,
     account: &mut Account<Config>,
 ): (Borrowed<Cap>, Cap) {
-    access_control::do_borrow<_, Outcome, _, _>(executable, account, version::current(), BorrowCapIntent())
+    account.process_intent!(
+        executable, 
+        version::current(), 
+        BorrowCapIntent(), 
+        |executable, iw| ac::do_borrow(executable, account, version::current(), iw),
+    )
 }
 
 /// Completes a BorrowCapIntent, destroys the executable and returns the cap to the account if the matching hot potato is returned.
-public fun complete_borrow_cap<Config, Outcome: store, Cap: key + store>(
-    executable: Executable, 
+public fun complete_borrow_cap<Config, Cap: key + store>(
     account: &mut Account<Config>,
-    borrow: Borrowed<Cap>, 
+    borrowed: Borrowed<Cap>, 
     cap: Cap
 ) {
-    access_control::return_borrowed(account, borrow, cap, version::current());
-    account.confirm_execution<_, Outcome, _>(executable, version::current(), BorrowCapIntent());
+    ac::return_borrowed(account, borrowed, cap, version::current());
 }

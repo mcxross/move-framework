@@ -2,19 +2,25 @@ module account_actions::package_upgrade_intents;
 
 // === Imports ===
 
-use std::string::String;
 use sui::{
-    package::{UpgradeTicket, UpgradeReceipt},
+    package::UpgradeTicket,
     clock::Clock,
 };
 use account_protocol::{
     account::{Account, Auth},
     executable::Executable,
+    intents::Params,
+    intent_interface,
 };
 use account_actions::{
-    package_upgrade,
+    package_upgrade::{Self, UpgradeAction, RestrictAction},
     version,
 };
+
+// === Aliases ===
+
+use fun intent_interface::build_intent as Account.build_intent;
+use fun intent_interface::process_intent as Account.process_intent;
 
 // === Errors ===
 
@@ -32,97 +38,75 @@ public struct RestrictPolicyIntent() has copy, drop;
 /// Creates an UpgradePackageIntent and adds it to an Account.
 public fun request_upgrade_package<Config, Outcome: store>(
     auth: Auth,
-    outcome: Outcome,
     account: &mut Account<Config>, 
-    key: String, 
-    description: String,
-    execution_time: u64,
-    expiration_time: u64,
-    package_name: String,
-    digest: vector<u8>,
-    clock: &Clock,
+    params: Params,
+    outcome: Outcome,
+    upgrade_action: UpgradeAction,
     ctx: &mut TxContext
 ) {
     account.verify(auth);
-    assert!(execution_time >= clock.timestamp_ms() + package_upgrade::get_time_delay(account, package_name), EInvalidExecutionTime);
+    params.assert_single_execution();
+    assert!(params.execution_times()[0] >= upgrade_action.upgrade_time(), EInvalidExecutionTime);
 
-    let mut intent = account.create_intent(
-        key,
-        description,
-        vector[execution_time],
-        expiration_time,
-        package_name,
+    account.build_intent!(
+        params,
         outcome,
+        b"".to_string(),
         version::current(),
         UpgradePackageIntent(),
-        ctx
+        ctx,
+        |intent, iw| intent.add_action(upgrade_action, iw),
     );
-
-    package_upgrade::new_upgrade(
-        &mut intent, account, package_name, digest, clock, version::current(), UpgradePackageIntent()
-    );
-    account.add_intent(intent, version::current(), UpgradePackageIntent());
 }
 
 /// Executes an UpgradePackageIntent, returns the UpgradeTicket for upgrading.
 public fun execute_upgrade_package<Config, Outcome: store>(
-    executable: &mut Executable,
+    executable: &mut Executable<Outcome>,
     account: &mut Account<Config>,
     clock: &Clock,
 ): UpgradeTicket {
-    package_upgrade::do_upgrade<_, Outcome, _>(executable, account, clock, version::current(), UpgradePackageIntent())
+    account.process_intent!(
+        executable,
+        version::current(),
+        UpgradePackageIntent(),
+        |executable, iw| package_upgrade::do_upgrade(executable, account, clock, version::current(), iw)
+    )
 }    
 
 /// Need to consume the ticket to upgrade the package before completing the intent.
 
-/// Consumes the receipt to commit the upgrade.
-public fun complete_upgrade_package<Config, Outcome: store>(
-    executable: Executable,
-    account: &mut Account<Config>,
-    receipt: UpgradeReceipt,
-) {
-    package_upgrade::confirm_upgrade<_, Outcome, _>(&executable, account, receipt, version::current(), UpgradePackageIntent());
-    account.confirm_execution<_, Outcome, _>(executable, version::current(), UpgradePackageIntent());
-}
-
 /// Creates a RestrictPolicyIntent and adds it to an Account.
 public fun request_restrict_policy<Config, Outcome: store>(
     auth: Auth,
-    outcome: Outcome,
     account: &mut Account<Config>, 
-    key: String,
-    description: String,
-    execution_time: u64,
-    expiration_time: u64,
-    package_name: String,
-    policy: u8,
+    params: Params,
+    outcome: Outcome,
+    restrict_action: RestrictAction,
     ctx: &mut TxContext
 ) {
     account.verify(auth);
-    
-    let mut intent = account.create_intent(
-        key,
-        description,
-        vector[execution_time],
-        expiration_time,
-        package_name,
+    params.assert_single_execution();
+
+    account.build_intent!(
+        params,
         outcome,
+        b"".to_string(),
         version::current(),
         RestrictPolicyIntent(),
-        ctx
+        ctx,
+        |intent, iw| intent.add_action(restrict_action, iw),
     );
-
-    package_upgrade::new_restrict(
-        &mut intent, account, package_name, policy, version::current(), RestrictPolicyIntent()
-    );
-    account.add_intent(intent, version::current(), RestrictPolicyIntent());
 }
 
 /// Restricts the upgrade policy.
 public fun execute_restrict_policy<Config, Outcome: store>(
-    mut executable: Executable,
+    executable: &mut Executable<Outcome>,
     account: &mut Account<Config>,
 ) {
-    package_upgrade::do_restrict<_, Outcome, _>(&mut executable, account, version::current(), RestrictPolicyIntent());
-    account.confirm_execution<_, Outcome, _>(executable, version::current(), RestrictPolicyIntent());
+    account.process_intent!(
+        executable,
+        version::current(),
+        RestrictPolicyIntent(),
+        |executable, iw| package_upgrade::do_restrict(executable, account, version::current(), iw)
+    );
 }

@@ -6,10 +6,8 @@ module account_actions::transfer;
 // === Imports ===
 
 use account_protocol::{
-    account::Account,
-    intents::{Intent, Expired},
+    intents::Expired,
     executable::Executable,
-    version_witness::VersionWitness,
 };
 
 // === Structs ===
@@ -23,25 +21,17 @@ public struct TransferAction has store {
 // === Public functions ===
 
 /// Creates a TransferAction and adds it to an intent.
-public fun new_transfer<Config, Outcome, IW: drop>(
-    intent: &mut Intent<Outcome>, 
-    account: &Account<Config>, 
-    recipient: address,
-    version_witness: VersionWitness,
-    intent_witness: IW,
-) {
-    account.add_action(intent, TransferAction { recipient }, version_witness, intent_witness);
+public fun new_transfer(recipient: address): TransferAction {
+    TransferAction { recipient }
 }
 
 /// Processes a TransferAction and transfers an object to a recipient.
-public fun do_transfer<Config, Outcome: store, T: key + store, IW: drop>(
-    executable: &mut Executable, 
-    account: &mut Account<Config>, 
+public fun do_transfer<Outcome: store, T: key + store, IW: drop>(
+    executable: &mut Executable<Outcome>, 
     object: T,
-    version_witness: VersionWitness,
     intent_witness: IW,
 ) {
-    let action = account.process_action<_, Outcome, TransferAction, _>(executable, version_witness, intent_witness);
+    let action: &TransferAction = executable.next_action(intent_witness);
     transfer::public_transfer(object, action.recipient);
 }
 

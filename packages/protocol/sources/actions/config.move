@@ -17,13 +17,12 @@ module account_protocol::config;
 use std::string::String;
 use account_protocol::{
     account::{Account, Auth},
-    intents::{Intent, Expired, Params},
+    intents::{Expired, Params},
     executable::Executable,
     deps::{Self, Deps},
     metadata,
     version,
     intent_interface,
-    action_interface,
 };
 use account_extensions::extensions::Extensions;
 
@@ -31,8 +30,6 @@ use account_extensions::extensions::Extensions;
 
 use fun intent_interface::build_intent as Account.build_intent;
 use fun intent_interface::process_intent as Account.process_intent;
-use fun action_interface::init_action as Intent.init_action;
-use fun action_interface::do_action as Executable.do_action;
 
 // === Structs ===
 
@@ -90,16 +87,21 @@ public fun update_extensions_to_latest<Config>(
         deps::new(extensions, account.deps().unverified_allowed(), new_names, new_addrs, new_versions);
 }
 
+public fun new_config_deps_action(
+    extensions: &Extensions,
+    names: vector<String>,
+    addresses: vector<address>,
+    versions: vector<u64>,
+): ConfigDepsAction {
+    ConfigDepsAction { deps: deps::new(extensions, false, names, addresses, versions) }
+}
 /// Creates an intent to update the dependencies of the account
 public fun request_config_deps<Config, Outcome: store>(
     auth: Auth,
     account: &mut Account<Config>, 
     params: Params,
     outcome: Outcome,
-    extensions: &Extensions,
-    names: vector<String>,
-    addresses: vector<address>,
-    versions: vector<u64>,
+    config_deps_action: ConfigDepsAction,
     ctx: &mut TxContext
 ) {
     account.verify(auth);
@@ -112,12 +114,7 @@ public fun request_config_deps<Config, Outcome: store>(
         version::current(),
         ConfigDepsIntent(),   
         ctx,
-        |intent| {
-            intent.init_action!(
-                ConfigDepsIntent(),
-                || ConfigDepsAction { deps: deps::new(extensions, false, names, addresses, versions) },
-            );
-        },
+        |intent, iw| intent.add_action(config_deps_action, iw),
     );
 }
 
@@ -130,12 +127,7 @@ public fun execute_config_deps<Config, Outcome: store>(
         executable, 
         version::current(),   
         ConfigDepsIntent(), 
-        |executable| {
-            executable.do_action!( 
-                ConfigDepsIntent(),
-                |action: &ConfigDepsAction| *account.deps_mut(version::current()) = action.deps,
-            );
-        },
+        |executable, iw| *account.deps_mut(version::current()) = executable.next_action<_, ConfigDepsAction, _>(iw).deps
     ); 
 } 
 
@@ -153,7 +145,8 @@ public fun request_toggle_unverified_allowed<Config, Outcome: store>(
     ctx: &mut TxContext
 ) {
     account.verify(auth);
-
+    params.assert_single_execution();
+    
     account.build_intent!(
         params,
         outcome,
@@ -161,12 +154,7 @@ public fun request_toggle_unverified_allowed<Config, Outcome: store>(
         version::current(),
         ToggleUnverifiedAllowedIntent(),
         ctx,
-        |intent| {
-            intent.init_action!(
-                ToggleUnverifiedAllowedIntent(),
-                || ToggleUnverifiedAllowedAction {},
-            );
-        },
+        |intent, iw| intent.add_action(ToggleUnverifiedAllowedAction {}, iw),
     );
 }
 
@@ -177,13 +165,11 @@ public fun execute_toggle_unverified_allowed<Config, Outcome: store>(
 ) {
     account.process_intent!(
         executable, 
-        version::current(), 
+        version::current(),
         ToggleUnverifiedAllowedIntent(),
-        |executable| {
-            executable.do_action!( 
-                ToggleUnverifiedAllowedIntent(),
-                |_action: &ToggleUnverifiedAllowedAction| account.deps_mut(version::current()).toggle_unverified_allowed(),
-            );
+        |executable, iw| {
+            let _action: &ToggleUnverifiedAllowedAction = executable.next_action(iw);
+            account.deps_mut(version::current()).toggle_unverified_allowed()
         },
     );    
 }

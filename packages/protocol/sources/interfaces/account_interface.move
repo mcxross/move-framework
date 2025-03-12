@@ -120,7 +120,7 @@ public macro fun resolve_intent<$Config, $Outcome, $CW: drop>(
     $key: String,
     $version_witness: VersionWitness,
     $config_witness: $CW,
-    $modify_outcome: |&mut $Outcome| -> (),
+    $modify_outcome: |&mut $Outcome|,
 ) {
     let account = $account;
 

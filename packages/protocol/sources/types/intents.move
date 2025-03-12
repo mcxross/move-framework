@@ -137,6 +137,31 @@ public fun destroy_empty_expired(expired: Expired) {
 
 // === View functions ===
 
+public use fun params_key as Params.key;
+public fun params_key(params: Params): String {
+    params.key
+}
+
+public use fun params_description as Params.description;
+public fun params_description(params: Params): String {
+    params.description
+}
+
+public use fun params_creation_time as Params.creation_time;
+public fun params_creation_time(params: Params): u64 {
+    params.creation_time
+}
+
+public use fun params_execution_times as Params.execution_times;
+public fun params_execution_times(params: Params): vector<u64> {
+    params.execution_times
+}
+
+public use fun params_expiration_time as Params.expiration_time;
+public fun params_expiration_time(params: Params): u64 {
+    params.expiration_time
+}
+
 public fun length(intents: &Intents): u64 {
     intents.inner.length()
 }

@@ -13,9 +13,8 @@ use sui::{
 };
 use account_protocol::{
     account::{Account, Auth},
-    intents::{Intent, Expired},
+    intents::Expired,
     executable::Executable,
-    version_witness::VersionWitness,
 };
 
 // === Errors ===
@@ -118,28 +117,18 @@ public fun destroy_cap(cap: ClaimCap) {
 // Intent functions
 
 /// Creates a VestAction and adds it to an intent.
-public fun new_vest<Config, Outcome, IW: drop>(
-    intent: &mut Intent<Outcome>, 
-    account: &Account<Config>,
-    start_timestamp: u64,
-    end_timestamp: u64,
-    recipient: address,
-    version_witness: VersionWitness,
-    intent_witness: IW,
-) {
-    account.add_action(intent, VestAction { start_timestamp, end_timestamp, recipient }, version_witness, intent_witness);
+public fun new_vest(start_timestamp: u64, end_timestamp: u64, recipient: address): VestAction {
+    VestAction { start_timestamp, end_timestamp, recipient }
 }
 
 /// Processes a VestAction and creates a vesting.
-public fun do_vest<Config, Outcome: store, CoinType, IW: copy + drop>(
-    executable: &mut Executable, 
-    account: &mut Account<Config>, 
+public fun do_vest<Outcome: store, CoinType, IW: drop>(
+    executable: &mut Executable<Outcome>, 
     coin: Coin<CoinType>,
-    version_witness: VersionWitness,
     intent_witness: IW,
     ctx: &mut TxContext
 ) {    
-    let action = account.process_action<_, Outcome, VestAction, _>(executable, version_witness, intent_witness);
+    let action: &VestAction = executable.next_action(intent_witness);
 
     transfer::share_object(Vesting<CoinType> { 
         id: object::new(ctx), 

@@ -20,7 +20,7 @@ module account_actions::access_control;
 
 use account_protocol::{
     account::{Account, Auth},
-    intents::{Intent, Expired},
+    intents::Expired,
     executable::Executable,
     version_witness::VersionWitness,
 };
@@ -68,27 +68,22 @@ public fun has_lock<Config, Cap>(
 // Intent functions
 
 /// Creates a BorrowAction and adds it to an intent.
-public fun new_borrow<Config, Outcome, Cap, IW: drop>(
-    intent: &mut Intent<Outcome>, 
-    account: &Account<Config>,
-    version_witness: VersionWitness,
-    intent_witness: IW,    
-) {
-    account.add_action(intent, BorrowAction<Cap> {}, version_witness, intent_witness);
+public fun new_borrow<Cap>(): BorrowAction<Cap> {
+    BorrowAction<Cap> {}
 }
 
 /// Processes a BorrowAction and returns a Borrowed hot potato and the Cap.
-public fun do_borrow<Config, Outcome: store, Cap: key + store, IW: copy + drop>(
-    executable: &mut Executable, 
+public fun do_borrow<Config, Outcome: store, Cap: key + store, IW: drop>(
+    executable: &mut Executable<Outcome>, 
     account: &mut Account<Config>,
     version_witness: VersionWitness,
     intent_witness: IW, 
 ): (Borrowed<Cap>, Cap) {
     assert!(has_lock<_, Cap>(account), ENoLock);
-    // check to be sure this cap type has been approved
-    let _action = account.process_action<_, Outcome, BorrowAction<Cap>, _>(executable, version_witness, intent_witness);
-    let cap = account.remove_managed_asset(CapKey<Cap>(), version_witness);
     
+    let _action: &BorrowAction<Cap> = executable.next_action(intent_witness);
+    let cap = account.remove_managed_asset(CapKey<Cap>(), version_witness);
+
     (Borrowed<Cap> { account_addr: account.addr() }, cap)
 }
 

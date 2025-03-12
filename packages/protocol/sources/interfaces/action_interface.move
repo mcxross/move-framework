@@ -59,10 +59,10 @@ public macro fun init_action<$Outcome, $Action: store, $IW: drop>(
 public macro fun do_action<$Outcome, $Action: store, $IW: drop>(
     $executable: &mut Executable<$Outcome>,
     $intent_witness: $IW,
-    $do_action: |&$Action| -> (),
-) {
+    $do_action: |&$Action| -> _,
+): _ {
     let executable = $executable;
 
     let action = executable.next_action($intent_witness);
-    $do_action(action);
+    $do_action(action)
 }

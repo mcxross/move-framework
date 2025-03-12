@@ -18,7 +18,7 @@ use sui::{
 use kiosk::{kiosk_lock_rule, royalty_rule, personal_kiosk_rule};
 use account_protocol::{
     account::{Account, Auth},
-    intents::{Intent, Expired},
+    intents::Expired,
     executable::Executable,
     version_witness::VersionWitness,
 };
@@ -55,6 +55,16 @@ public struct ListAction has store {
 }
 
 // === Public functions ===
+
+public use fun take_action_name as TakeAction.name;
+public fun take_action_name(take_action: &TakeAction): String {
+    take_action.name
+}
+
+public use fun list_action_name as ListAction.name;
+public fun list_action_name(list_action: &ListAction): String {
+    list_action.name
+}
 
 /// Creates a new Kiosk and locks the KioskOwnerCap in the Account
 #[allow(lint(share_owned))]
@@ -179,21 +189,13 @@ public fun close<Config>(
 // Intent functions
 
 /// Creates a new TakeAction and adds it to an intent.
-public fun new_take<Config, Outcome, IW: drop>(
-    intent: &mut Intent<Outcome>, 
-    account: &Account<Config>, 
-    name: String,
-    nft_id: ID, 
-    recipient: address,
-    version_witness: VersionWitness,
-    intent_witness: IW,
-) {
-    account.add_action(intent, TakeAction { name, nft_id, recipient }, version_witness, intent_witness);
+public fun new_take(name: String, nft_id: ID, recipient: address): TakeAction {
+    TakeAction { name, nft_id, recipient }
 }
 
 /// Processes a TakeAction, resolves the rules and places the nft into the recipient's kiosk.
-public fun do_take<Config, Outcome: store, Nft: key + store, IW: copy + drop>(
-    executable: &mut Executable,
+public fun do_take<Config, Outcome: store, Nft: key + store, IW: drop>(
+    executable: &mut Executable<Outcome>,
     account: &mut Account<Config>,
     account_kiosk: &mut Kiosk, 
     recipient_kiosk: &mut Kiosk, 
@@ -203,10 +205,10 @@ public fun do_take<Config, Outcome: store, Nft: key + store, IW: copy + drop>(
     intent_witness: IW,
     ctx: &mut TxContext
 ): TransferRequest<Nft> {
-    let action = account.process_action<_, Outcome, TakeAction, _>(executable, version_witness, intent_witness);
+    let action: &TakeAction = executable.next_action(intent_witness);
     assert!(action.recipient == ctx.sender(), EWrongReceiver);
-    let name = action.name;
-    let cap: &KioskOwnerCap = account.borrow_managed_asset(KioskOwnerKey(name), version_witness);
+
+    let cap: &KioskOwnerCap = account.borrow_managed_asset(KioskOwnerKey(action.name), version_witness);
 
     account_kiosk.list<Nft>(cap, action.nft_id, 0);
     let (nft, mut request) = account_kiosk.purchase<Nft>(action.nft_id, coin::zero<SUI>(ctx));
@@ -226,7 +228,7 @@ public fun do_take<Config, Outcome: store, Nft: key + store, IW: copy + drop>(
         personal_kiosk_rule::prove(account_kiosk, &mut request);
     };
     // the request can be filled with arbitrary rules and must be confirmed afterwards
-    request
+    request 
 }
 
 /// Deletes a TakeAction from an expired intent.
@@ -235,29 +237,20 @@ public fun delete_take(expired: &mut Expired) {
 }
 
 /// Creates a new ListAction and adds it to an intent.
-public fun new_list<Config, Outcome, IW: drop>(
-    intent: &mut Intent<Outcome>, 
-    account: &Account<Config>, 
-    name: String,
-    nft_id: ID, 
-    price: u64,
-    version_witness: VersionWitness,
-    intent_witness: IW,
-) {
-    account.add_action(intent, ListAction { name, nft_id, price }, version_witness, intent_witness);
+public fun new_list(name: String, nft_id: ID, price: u64): ListAction {
+    ListAction { name, nft_id, price }
 }
 
 /// Processes a ListAction and lists the nft for purchase.
-public fun do_list<Config, Outcome: store, Nft: key + store, IW: copy + drop>(
-    executable: &mut Executable,
+public fun do_list<Config, Outcome: store, Nft: key + store, IW: drop>(
+    executable: &mut Executable<Outcome>,
     account: &mut Account<Config>,
     kiosk: &mut Kiosk,  
     version_witness: VersionWitness,
     intent_witness: IW,
 ) {
-    let action = account.process_action<_, Outcome, ListAction, _>(executable, version_witness, intent_witness);
-    let name = action.name;
-    let cap: &KioskOwnerCap = account.borrow_managed_asset(KioskOwnerKey(name), version_witness);
+    let action: &ListAction = executable.next_action(intent_witness);
+    let cap: &KioskOwnerCap = account.borrow_managed_asset(KioskOwnerKey(action.name), version_witness);
 
     kiosk.list<Nft>(cap, action.nft_id, action.price);
 }

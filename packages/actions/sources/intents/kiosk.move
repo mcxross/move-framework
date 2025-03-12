@@ -2,24 +2,31 @@ module account_actions::kiosk_intents;
 
 // === Imports ===
 
-use std::string::String;
 use sui::{
     kiosk::{Kiosk, KioskOwnerCap},
     transfer_policy::{TransferPolicy, TransferRequest},
 };
 use account_protocol::{
     account::{Account, Auth},
+    intents::Params,
     executable::Executable,
+    intent_interface,
 };
 use account_actions::{
-    kiosk as acc_kiosk,
+    kiosk::{Self as acc_kiosk, TakeAction, ListAction},
     version,
 };
+
+// === Aliases ===
+
+use fun intent_interface::build_intent as Account.build_intent;
+use fun intent_interface::process_intent as Account.process_intent;
 
 // === Errors ===
 
 const ENoLock: u64 = 0;
 const ENftsPricesNotSameLength: u64 = 1;
+const ENameNotSame: u64 = 2;
 
 // === Structs ===
 
@@ -33,41 +40,32 @@ public struct ListNftsIntent() has copy, drop;
 /// Creates a TakeNftsIntent and adds it to an Account.
 public fun request_take_nfts<Config, Outcome: store>(
     auth: Auth,
-    outcome: Outcome,
     account: &mut Account<Config>,
-    key: String,
-    description: String,
-    execution_time: u64,
-    expiration_time: u64,
-    kiosk_name: String,
-    nft_ids: vector<ID>,
-    recipient: address,
+    params: Params,
+    outcome: Outcome,
+    take_actions: vector<TakeAction>,
     ctx: &mut TxContext
 ) {
     account.verify(auth);
-    assert!(acc_kiosk::has_lock(account, kiosk_name), ENoLock);
+    params.assert_single_execution();
 
-    let mut intent = account.create_intent(
-        key,
-        description,
-        vector[execution_time],
-        expiration_time,
-        kiosk_name,
-        outcome,
+    assert!(acc_kiosk::has_lock(account, take_actions[0].name()), ENoLock);
+    assert!(take_actions.all!(|action| action.name() == take_actions[0].name()), ENameNotSame);
+
+    account.build_intent!(
+        params,
+        outcome, 
+        take_actions[0].name(),
         version::current(),
         TakeNftsIntent(),
-        ctx
+        ctx,
+        |intent, iw| take_actions.do!(|take_action| intent.add_action(take_action, iw))
     );
-
-    nft_ids.do!(|nft_id| 
-        acc_kiosk::new_take(&mut intent, account, kiosk_name, nft_id, recipient, version::current(), TakeNftsIntent())
-    );
-    account.add_intent(intent, version::current(), TakeNftsIntent());
 }
 
 /// Executes a TakeNftsIntent, takes nfts from a kiosk managed by a account to another kiosk. Can be looped over.
 public fun execute_take_nfts<Config, Outcome: store, Nft: key + store>(
-    executable: &mut Executable,
+    executable: &mut Executable<Outcome>,
     account: &mut Account<Config>,
     account_kiosk: &mut Kiosk, 
     recipient_kiosk: &mut Kiosk, 
@@ -75,66 +73,58 @@ public fun execute_take_nfts<Config, Outcome: store, Nft: key + store>(
     policy: &mut TransferPolicy<Nft>,
     ctx: &mut TxContext
 ): TransferRequest<Nft> {
-    acc_kiosk::do_take<_, Outcome, _, _>(executable, account, account_kiosk, recipient_kiosk, recipient_cap, policy, version::current(), TakeNftsIntent(), ctx)
-}
-
-/// Completes a TakeNftsIntent, destroys the executable.
-public fun complete_take_nfts<Config, Outcome: store>(
-    executable: Executable,
-    account: &Account<Config>,
-) {
-    account.confirm_execution<_, Outcome, _>(executable, version::current(), TakeNftsIntent());
+    account.process_intent!(
+        executable,
+        version::current(),
+        TakeNftsIntent(),
+        |executable, iw| acc_kiosk::do_take<_, _, Nft, _>(
+            executable, 
+            account, 
+            account_kiosk, 
+            recipient_kiosk, 
+            recipient_cap, 
+            policy, 
+            version::current(), 
+            iw, 
+            ctx
+        ),
+    )
 }
 
 /// Creates a ListNftsIntent and adds it to an Account.
 public fun request_list_nfts<Config, Outcome: store>(
     auth: Auth,
-    outcome: Outcome,
     account: &mut Account<Config>,
-    key: String,
-    description: String,
-    execution_time: u64,
-    expiration_time: u64,
-    kiosk_name: String,
-    nft_ids: vector<ID>,
-    prices: vector<u64>,
+    params: Params,
+    outcome: Outcome,
+    list_actions: vector<ListAction>,
     ctx: &mut TxContext
 ) {
     account.verify(auth);
-    assert!(acc_kiosk::has_lock(account, kiosk_name), ENoLock);
-    assert!(nft_ids.length() == prices.length(), ENftsPricesNotSameLength);
+    assert!(acc_kiosk::has_lock(account, list_actions[0].name()), ENoLock);
+    assert!(list_actions.all!(|action| action.name() == list_actions[0].name()), ENameNotSame);
 
-    let mut intent = account.create_intent(
-        key,
-        description,
-        vector[execution_time],
-        expiration_time,
-        kiosk_name,
+    account.build_intent!(
+        params,
         outcome,
+        list_actions[0].name(),
         version::current(),
         ListNftsIntent(),
-        ctx
+        ctx,
+        |intent, iw| list_actions.do!(|list_action| intent.add_action(list_action, iw))
     );
-
-    nft_ids.zip_do!(prices, |nft_id, price| 
-        acc_kiosk::new_list(&mut intent, account, kiosk_name, nft_id, price, version::current(), ListNftsIntent())
-    );
-    account.add_intent(intent, version::current(), ListNftsIntent());
 }
 
 /// Executes a ListNftsIntent, lists nfts in a kiosk managed by a account. Can be looped over.
 public fun execute_list_nfts<Config, Outcome: store, Nft: key + store>(
-    executable: &mut Executable,
+    executable: &mut Executable<Outcome>,
     account: &mut Account<Config>,
     kiosk: &mut Kiosk,
 ) {
-    acc_kiosk::do_list<_, Outcome, Nft, _>(executable, account, kiosk, version::current(), ListNftsIntent());
-}
-
-/// Completes a ListNftsIntent, destroys the executable after looping over the listings.
-public fun complete_list_nfts<Config, Outcome: store>(
-    executable: Executable,
-    account: &Account<Config>,
-) {
-    account.confirm_execution<_, Outcome, _>(executable, version::current(), ListNftsIntent());
+    account.process_intent!(
+        executable,
+        version::current(),
+        ListNftsIntent(),
+        |executable, iw| acc_kiosk::do_list<_, _, Nft, _>(executable, account, kiosk, version::current(), iw),
+    );
 }

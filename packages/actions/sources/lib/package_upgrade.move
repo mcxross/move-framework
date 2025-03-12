@@ -15,7 +15,7 @@ use sui::{
 };
 use account_protocol::{
     account::{Account, Auth},
-    intents::{Intent, Expired},
+    intents::Expired,
     executable::Executable,
     version_witness::VersionWitness,
 };
@@ -72,6 +72,10 @@ public struct RestrictAction has store {
 }
 
 // === Public Functions ===
+
+public fun upgrade_time(upgrade_action: &UpgradeAction): u64 {
+    upgrade_action.upgrade_time
+}
 
 /// Attaches the UpgradeCap as a Dynamic Object Field to the account.
 public fun lock_cap<Config>(
@@ -195,54 +199,50 @@ public fun get_package_name<Config>(
 // Intent functions
 
 /// Creates a new UpgradeAction and adds it to an intent.
-public fun new_upgrade<Config, Outcome, IW: drop>(
-    intent: &mut Intent<Outcome>, 
+public fun new_upgrade<Config>(
     account: &Account<Config>,
     name: String,
     digest: vector<u8>, 
     clock: &Clock,
-    version_witness: VersionWitness,
-    intent_witness: IW
-) {
+): UpgradeAction {
     assert!(package_upgrade::has_cap(account, name), ENoLock);
-
     let upgrade_time = clock.timestamp_ms() + get_time_delay(account, name);
-    account.add_action(intent, UpgradeAction { name, digest, upgrade_time }, version_witness, intent_witness);
+
+    UpgradeAction { name, digest, upgrade_time }
 }    
 
 /// Processes an UpgradeAction and returns a UpgradeTicket.
-public fun do_upgrade<Config, Outcome: store, IW: copy + drop>(
-    executable: &mut Executable,
+public fun do_upgrade<Config, Outcome: store, IW: drop>(
+    executable: &mut Executable<Outcome>,
     account: &mut Account<Config>,
     clock: &Clock,
     version_witness: VersionWitness,
     intent_witness: IW,
 ): UpgradeTicket {
-    let action = account.process_action<_, Outcome, UpgradeAction, _>(executable, version_witness, intent_witness);
-    let (name, digest, upgrade_time) = (action.name, action.digest, action.upgrade_time);
-    assert!(upgrade_time <= clock.timestamp_ms(), EUpgradeTooEarly);
+    let action: &UpgradeAction = executable.next_action(intent_witness);
+    assert!(action.upgrade_time <= clock.timestamp_ms(), EUpgradeTooEarly);
 
-    let cap: &mut UpgradeCap = account.borrow_managed_asset_mut(UpgradeCapKey(name), version_witness);
+    let cap: &mut UpgradeCap = account.borrow_managed_asset_mut(UpgradeCapKey(action.name), version_witness);
     let policy = cap.policy();
 
-    cap.authorize_upgrade(policy, digest)
+    cap.authorize_upgrade(policy, action.digest) // return ticket
 }    
 
 // must be called after UpgradeAction is processed, there cannot be any other action processed before
 /// Commits an upgrade and updates the index with the new package address.
-public fun confirm_upgrade<Config, Outcome: store, IW: copy + drop>(
-    executable: &Executable,
+public fun confirm_upgrade<Config, Outcome: store, IW: drop>(
+    executable: &mut Executable<Outcome>,
     account: &mut Account<Config>,
     receipt: UpgradeReceipt,
     version_witness: VersionWitness,
     intent_witness: IW,
 ) {
-    // same checks as in `account.process_action()`
+    // same checks as in `account.process_intent()`
     account.deps().check(version_witness);
-    executable.issuer().assert_is_witness(intent_witness);
-    executable.issuer().assert_is_account(account.addr());
+    executable.intent().assert_is_witness(intent_witness);
+    executable.intent().assert_is_account(account.addr());
 
-    let key = executable.issuer().intent_key();
+    let key = executable.intent().key();
     let name = account.intents().get<Outcome>(key).actions().borrow<_, UpgradeAction>(executable.action_idx() - 1).name;
     let cap_mut: &mut UpgradeCap = account.borrow_managed_asset_mut(UpgradeCapKey(name), version_witness);
     cap_mut.commit_upgrade(receipt);
@@ -259,14 +259,11 @@ public fun delete_upgrade(expired: &mut Expired) {
 }
 
 /// Creates a new RestrictAction and adds it to an intent.
-public fun new_restrict<Config, Outcome, IW: drop>(
-    intent: &mut Intent<Outcome>, 
+public fun new_restrict<Config>(
     account: &Account<Config>,
     name: String,
     policy: u8, 
-    version_witness: VersionWitness,
-    intent_witness: IW
-) {    
+): RestrictAction {    
     assert!(package_upgrade::has_cap(account, name), ENoLock);
     let current_policy = package_upgrade::get_cap_policy(account, name);
     assert!(policy > current_policy, EPolicyShouldRestrict);
@@ -277,27 +274,26 @@ public fun new_restrict<Config, Outcome, IW: drop>(
         EInvalidPolicy
     );
 
-    account.add_action(intent, RestrictAction { name, policy }, version_witness, intent_witness);
+    RestrictAction { name, policy }
 }    
 
 /// Processes a RestrictAction and updates the UpgradeCap policy.
-public fun do_restrict<Config, Outcome: store, IW: copy + drop>(
-    executable: &mut Executable,
+public fun do_restrict<Config, Outcome: store, IW: drop>(
+    executable: &mut Executable<Outcome>,
     account: &mut Account<Config>,
     version_witness: VersionWitness,
     intent_witness: IW,
 ) {
-    let action = account.process_action<_, Outcome, RestrictAction, _>(executable, version_witness, intent_witness);
-    let (name, policy) = (action.name, action.policy);
+    let action: &RestrictAction = executable.next_action(intent_witness);
 
-    if (policy == package::additive_policy()) {
-        let cap_mut: &mut UpgradeCap = account.borrow_managed_asset_mut(UpgradeCapKey(name), version_witness);
+    if (action.policy == package::additive_policy()) {
+        let cap_mut: &mut UpgradeCap = account.borrow_managed_asset_mut(UpgradeCapKey(action.name), version_witness);
         cap_mut.only_additive_upgrades();
-    } else if (policy == package::dep_only_policy()) {
-        let cap_mut: &mut UpgradeCap = account.borrow_managed_asset_mut(UpgradeCapKey(name), version_witness);
+    } else if (action.policy == package::dep_only_policy()) {
+        let cap_mut: &mut UpgradeCap = account.borrow_managed_asset_mut(UpgradeCapKey(action.name), version_witness);
         cap_mut.only_dep_upgrades();
     } else {
-        let cap: UpgradeCap = account.remove_managed_asset(UpgradeCapKey(name), version_witness);
+        let cap: UpgradeCap = account.remove_managed_asset(UpgradeCapKey(action.name), version_witness);
         package::make_immutable(cap);
     };
 }

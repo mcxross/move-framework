@@ -26,7 +26,8 @@ use account_protocol::{
 ///     account: &mut Account<Config>, 
 ///     params: Params,
 ///     outcome: Outcome,
-///     <ACTION_ARGS>,
+///     action1: Action1,
+///     action2: Action2,
 ///     ctx: &mut TxContext
 /// ) {
 ///     account.verify(auth);
@@ -39,9 +40,9 @@ use account_protocol::{
 ///         version::current(),
 ///         IntentWitness(),   
 ///         ctx,
-///         |intent| {
-///             new_action(intent, <ACTION_ARGS>)
-///             new_other_action(intent)
+///         |intent, iw| {
+///             intent.add_action(action1, iw);
+///             intent.add_action(action2, iw);
 ///         }
 ///     );
 /// }
@@ -57,7 +58,7 @@ public macro fun build_intent<$Config, $Outcome, $IW: drop>(
     $version_witness: VersionWitness,
     $intent_witness: $IW,
     $ctx: &mut TxContext,
-    $add_actions: |&mut Intent<$Outcome>| -> (),
+    $add_actions: |&mut Intent<$Outcome>, $IW|,
 ) {
     let account = $account;
 
@@ -65,12 +66,12 @@ public macro fun build_intent<$Config, $Outcome, $IW: drop>(
         $params,
         $outcome,
         $managed_name,
-        $version_witness,
+        $version_witness, 
         $intent_witness,
         $ctx 
     );
 
-    $add_actions(&mut intent);
+    $add_actions(&mut intent, $intent_witness);
 
     account.insert_intent(intent, $version_witness, $intent_witness);
 }
@@ -87,9 +88,9 @@ public macro fun build_intent<$Config, $Outcome, $IW: drop>(
 ///         executable, 
 ///         version::current(),   
 ///         ConfigDepsIntent(), 
-///         |executable| {
-///             do_action(executable, <ADDITIONAL_ARG>)
-///             do_other_action(executable)
+///         |executable, iw| {
+///             do_action(executable, iw, <ADDITIONAL_ARG>)
+///             do_other_action(executable, iw)
 ///         }
 ///     ); 
 /// } 
@@ -102,8 +103,8 @@ public macro fun process_intent<$Config, $Outcome: store, $IW: drop>(
     $executable: &mut Executable<$Outcome>,
     $version_witness: VersionWitness,
     $intent_witness: $IW,
-    $do_actions: |&mut Executable<$Outcome>| -> ()
-) {
+    $do_actions: |&mut Executable<$Outcome>, $IW| -> _
+): _ {
     let account = $account;
     let executable = $executable;
     // let version_witness = $version_witness;
@@ -115,5 +116,5 @@ public macro fun process_intent<$Config, $Outcome: store, $IW: drop>(
     // ensures the intent is created by the same package that creates the action
     executable.intent().assert_is_witness($intent_witness);
 
-    $do_actions(executable);
+    $do_actions(executable, $intent_witness)
 }
