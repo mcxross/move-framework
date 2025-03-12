@@ -87,25 +87,22 @@ public fun update_extensions_to_latest<Config>(
         deps::new(extensions, account.deps().unverified_allowed(), new_names, new_addrs, new_versions);
 }
 
-public fun new_config_deps_action(
-    extensions: &Extensions,
-    names: vector<String>,
-    addresses: vector<address>,
-    versions: vector<u64>,
-): ConfigDepsAction {
-    ConfigDepsAction { deps: deps::new(extensions, false, names, addresses, versions) }
-}
 /// Creates an intent to update the dependencies of the account
 public fun request_config_deps<Config, Outcome: store>(
     auth: Auth,
     account: &mut Account<Config>, 
     params: Params,
     outcome: Outcome,
-    config_deps_action: ConfigDepsAction,
+    extensions: &Extensions,
+    names: vector<String>,
+    addresses: vector<address>,
+    versions: vector<u64>,
     ctx: &mut TxContext
 ) {
     account.verify(auth);
     params.assert_single_execution();
+
+    let deps = deps::new(extensions, false, names, addresses, versions);
 
     account.build_intent!(
         params,
@@ -114,7 +111,7 @@ public fun request_config_deps<Config, Outcome: store>(
         version::current(),
         ConfigDepsIntent(),   
         ctx,
-        |intent, iw| intent.add_action(config_deps_action, iw),
+        |intent, iw| intent.add_action(ConfigDepsAction { deps }, iw),
     );
 }
 

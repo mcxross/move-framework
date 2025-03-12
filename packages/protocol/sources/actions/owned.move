@@ -12,7 +12,7 @@ use sui::{
 };
 use account_protocol::{
     account::{Account, Auth},
-    intents::Expired,
+    intents::{Expired, Intent},
     executable::Executable,
 };
 
@@ -32,9 +32,16 @@ public struct WithdrawAction has store {
 // === Public functions ===
 
 /// Creates a new WithdrawAction and add it to an intent
-public fun new_withdraw<Config>(account: &mut Account<Config>, object_id: ID): WithdrawAction {
+public fun new_withdraw<Config, Outcome, IW: drop>(
+    intent: &mut Intent<Outcome>, 
+    account: &mut Account<Config>,
+    object_id: ID,
+    intent_witness: IW,
+) {
+    intent.assert_is_account(account.addr());
+    
     account.lock_object(object_id);
-    WithdrawAction { object_id }
+    intent.add_action(WithdrawAction { object_id }, intent_witness);
 }
 
 /// Executes a WithdrawAction and returns the object
@@ -44,6 +51,8 @@ public fun do_withdraw<Config, Outcome: store, T: key + store, IW: drop>(
     receiving: Receiving<T>,
     intent_witness: IW,
 ): T {    
+    executable.intent().assert_is_account(account.addr());
+
     let action: &WithdrawAction = executable.next_action(intent_witness);
     assert!(receiving.receiving_object_id() == action.object_id, EWrongObject);
 

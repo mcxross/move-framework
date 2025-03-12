@@ -3,8 +3,9 @@ module account_actions::currency_intents;
 // === Imports ===
 
 use std::{
-    type_name,
+    ascii,
     string::String,
+    type_name,
 };
 use sui::{
     transfer::Receiving,
@@ -14,14 +15,14 @@ use account_protocol::{
     account::{Account, Auth},
     executable::Executable,
     intents::Params,
-    owned::{Self, WithdrawAction},
+    owned,
     intent_interface
 };
 use account_actions::{
-    transfer::{Self as acc_transfer, TransferAction},
-    vesting::{Self, VestAction},
+    transfer as acc_transfer,
+    vesting,
     version,
-    currency::{Self, DisableAction, UpdateAction, MintAction, BurnAction},
+    currency,
 };
 
 // === Aliases ===
@@ -55,7 +56,12 @@ public fun request_disable_rules<Config, Outcome: store, CoinType>(
     account: &mut Account<Config>,
     params: Params,
     outcome: Outcome,
-    disable_action: DisableAction<CoinType>,
+    mint: bool,
+    burn: bool,
+    update_symbol: bool,
+    update_name: bool,
+    update_description: bool,
+    update_icon: bool,
     ctx: &mut TxContext
 ) {
     account.verify(auth);
@@ -64,11 +70,13 @@ public fun request_disable_rules<Config, Outcome: store, CoinType>(
     account.build_intent!(
         params,
         outcome, 
-        type_to_name<CoinType>(),
+        type_name_to_string<CoinType>(),
         version::current(),
         DisableRulesIntent(),   
         ctx,
-        |intent, iw| intent.add_action(disable_action, iw),
+        |intent, iw| currency::new_disable<_, Outcome, CoinType, _>(
+            intent, account, mint, burn, update_symbol, update_name, update_description, update_icon, iw
+        ),
     );
 }
 
@@ -91,7 +99,10 @@ public fun request_update_metadata<Config, Outcome: store, CoinType>(
     account: &mut Account<Config>,
     params: Params,
     outcome: Outcome,
-    update_action: UpdateAction<CoinType>,
+    md_symbol: Option<ascii::String>,
+    md_name: Option<String>,
+    md_description: Option<String>,
+    md_icon_url: Option<ascii::String>,
     ctx: &mut TxContext
 ) {
     account.verify(auth);
@@ -100,11 +111,13 @@ public fun request_update_metadata<Config, Outcome: store, CoinType>(
     account.build_intent!(
         params,
         outcome, 
-        type_to_name<CoinType>(),
+        type_name_to_string<CoinType>(),
         version::current(),
         UpdateMetadataIntent(),
         ctx,
-        |intent, iw| intent.add_action(update_action, iw),
+        |intent, iw| currency::new_update<_, Outcome, CoinType, _>(
+            intent, account, md_symbol, md_name, md_description, md_icon_url, iw
+        ),
     );
 }
 
@@ -128,27 +141,27 @@ public fun request_mint_and_transfer<Config, Outcome: store, CoinType>(
     account: &mut Account<Config>,
     params: Params,
     outcome: Outcome,
-    mint_actions: vector<MintAction<CoinType>>,
-    transfer_actions: vector<TransferAction>,
+    amounts: vector<u64>,
+    recipients: vector<address>,
     ctx: &mut TxContext
 ) {
     account.verify(auth);
-    assert!(mint_actions.length() == transfer_actions.length(), EAmountsRecipentsNotSameLength);
+    assert!(amounts.length() == recipients.length(), EAmountsRecipentsNotSameLength);
 
     let rules = currency::borrow_rules<_, CoinType>(account);
-    let sum = mint_actions.fold!(0, |sum, mint_action| sum + mint_action.amount());
+    let sum = amounts.fold!(0, |sum, amount| sum + amount);
     if (rules.max_supply().is_some()) assert!(sum <= *rules.max_supply().borrow(), EMaxSupply);
 
     account.build_intent!(
         params,
         outcome, 
-        type_to_name<CoinType>(),
+        type_name_to_string<CoinType>(),
         version::current(),
         MintAndTransferIntent(),
         ctx,
-        |intent, iw| mint_actions.zip_do!(transfer_actions, |mint_action, transfer_action| {
-            intent.add_action(mint_action, iw);
-            intent.add_action(transfer_action, iw);
+        |intent, iw| amounts.zip_do!(recipients, |amount, recipient| {
+            currency::new_mint<_, _, CoinType, _>(intent, account, amount, iw);
+            acc_transfer::new_transfer(intent, recipient, iw);
         })
     );
 }
@@ -176,26 +189,28 @@ public fun request_mint_and_vest<Config, Outcome: store, CoinType>(
     account: &mut Account<Config>, 
     params: Params,
     outcome: Outcome,
-    mint_action: MintAction<CoinType>,
-    vest_action: VestAction,
+    total_amount: u64,
+    start_timestamp: u64, 
+    end_timestamp: u64, 
+    recipient: address,
     ctx: &mut TxContext
 ) {
     account.verify(auth);
     params.assert_single_execution();
 
     let rules = currency::borrow_rules<_, CoinType>(account);
-    if (rules.max_supply().is_some()) assert!(mint_action.amount() <= *rules.max_supply().borrow(), EMaxSupply);
+    if (rules.max_supply().is_some()) assert!(total_amount <= *rules.max_supply().borrow(), EMaxSupply);
 
     account.build_intent!(
         params,
         outcome, 
-        type_to_name<CoinType>(),
+        type_name_to_string<CoinType>(),
         version::current(),
         MintAndVestIntent(),
         ctx,
         |intent, iw| {
-            intent.add_action(mint_action, iw);
-            intent.add_action(vest_action, iw);
+            currency::new_mint<_, _, CoinType, _>(intent, account, total_amount, iw);
+            vesting::new_vest(intent, start_timestamp, end_timestamp, recipient, iw);
         }
     );
 }
@@ -223,8 +238,8 @@ public fun request_withdraw_and_burn<Config, Outcome: store, CoinType>(
     account: &mut Account<Config>,
     params: Params,
     outcome: Outcome,
-    withdraw_action: WithdrawAction,
-    burn_action: BurnAction<CoinType>,
+    coin_id: ID,
+    amount: u64,
     ctx: &mut TxContext
 ) {
     account.verify(auth);
@@ -233,13 +248,13 @@ public fun request_withdraw_and_burn<Config, Outcome: store, CoinType>(
     account.build_intent!(
         params,
         outcome, 
-        type_to_name<CoinType>(),
+        type_name_to_string<CoinType>(),
         version::current(),
         WithdrawAndBurnIntent(), 
         ctx,
         |intent, iw| {
-            intent.add_action(burn_action, iw);
-            intent.add_action(withdraw_action, iw);
+            currency::new_burn<_, _, CoinType, _>(intent, account, amount, iw);
+            owned::new_withdraw(intent, account, coin_id, iw);
         }
     );
 }
@@ -264,6 +279,6 @@ public fun execute_withdraw_and_burn<Config, Outcome: store, CoinType>(
 
 // === Private functions ===
 
-fun type_to_name<T>(): String {
+fun type_name_to_string<T>(): String {
     type_name::get<T>().into_string().to_string()
 }

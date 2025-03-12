@@ -12,7 +12,7 @@ use std::{
 use sui::coin::{Coin, TreasuryCap, CoinMetadata};
 use account_protocol::{
     account::{Account, Auth},
-    intents::Expired,
+    intents::{Expired, Intent},
     executable::Executable,
     version_witness::VersionWitness,
 };
@@ -83,11 +83,6 @@ public struct UpdateAction<phantom CoinType> has store {
 }
 
 // === Public functions ===
-
-public use fun mint_action_amount as MintAction.amount;
-public fun mint_action_amount<CoinType>(mint_action: &MintAction<CoinType>): u64 {
-    mint_action.amount
-}
 
 /// Authenticated users can lock a TreasuryCap.
 public fun lock_cap<Config, CoinType>(
@@ -199,7 +194,8 @@ public fun public_burn<Config, CoinType>(
 // Intent functions
 
 /// Creates a DisableAction and adds it to an intent.
-public fun new_disable<Config, CoinType>(
+public fun new_disable<Config, Outcome, CoinType, IW: drop>(
+    intent: &mut Intent<Outcome>,
     account: &Account<Config>,
     mint: bool,
     burn: bool,
@@ -207,11 +203,12 @@ public fun new_disable<Config, CoinType>(
     update_name: bool,
     update_description: bool,
     update_icon: bool,
-): DisableAction<CoinType> {
+    intent_witness: IW,
+) {
     assert!(currency::has_cap<_, CoinType>(account), ENoLock);
     assert!(mint || burn || update_symbol || update_name || update_description || update_icon, ENoChange);
     
-    DisableAction<CoinType> { mint, burn, update_symbol, update_name, update_description, update_icon }
+    intent.add_action(DisableAction<CoinType> { mint, burn, update_symbol, update_name, update_description, update_icon }, intent_witness);
 }
 
 /// Processes a DisableAction and disables the permissions marked as true.
@@ -244,10 +241,12 @@ public fun delete_disable<CoinType>(expired: &mut Expired) {
 }
 
 /// Creates a MintAction and adds it to an intent.
-public fun new_mint<Config, CoinType>(
+public fun new_mint<Config, Outcome, CoinType, IW: drop>(
+    intent: &mut Intent<Outcome>,
     account: &Account<Config>, 
     amount: u64,
-): MintAction<CoinType> {
+    intent_witness: IW,
+) {
     assert!(currency::has_cap<_, CoinType>(account), ENoLock);
 
     let rules: &CurrencyRules<CoinType> = currency::borrow_rules(account);
@@ -255,7 +254,7 @@ public fun new_mint<Config, CoinType>(
     let supply = currency::coin_type_supply<_, CoinType>(account);
     if (rules.max_supply().is_some()) assert!(amount + supply <= *rules.max_supply().borrow(), EMaxSupply);
 
-    MintAction<CoinType> { amount }
+    intent.add_action(MintAction<CoinType> { amount }, intent_witness);
 }
 
 /// Processes a MintAction, mints and returns new coins.
@@ -288,15 +287,17 @@ public fun delete_mint<CoinType>(expired: &mut Expired) {
 }
 
 /// Creates a BurnAction and adds it to an intent.
-public fun new_burn<Config, CoinType>(
+public fun new_burn<Config, Outcome, CoinType, IW: drop>(
+    intent: &mut Intent<Outcome>,
     account: &Account<Config>, 
     amount: u64, 
-): BurnAction<CoinType> {
+    intent_witness: IW,
+) {
     assert!(currency::has_cap<_, CoinType>(account), ENoLock);
     let rules: &CurrencyRules<CoinType> = currency::borrow_rules(account);
     assert!(rules.can_burn(), EBurnDisabled);
 
-    BurnAction<CoinType> { amount }
+    intent.add_action(BurnAction<CoinType> { amount }, intent_witness);
 }
 
 /// Processes a BurnAction, burns coins and returns the amount burned.
@@ -328,13 +329,15 @@ public fun delete_burn<CoinType>(expired: &mut Expired) {
 }
 
 /// Creates an UpdateAction and adds it to an intent.
-public fun new_update<Config, CoinType>(
+public fun new_update<Config, Outcome, CoinType, IW: drop>(
+    intent: &mut Intent<Outcome>,
     account: &Account<Config>, 
     symbol: Option<ascii::String>,
     name: Option<String>,
     description: Option<String>,
     icon_url: Option<ascii::String>,
-): UpdateAction<CoinType> {
+    intent_witness: IW,
+) {
     assert!(currency::has_cap<_, CoinType>(account), ENoLock);
     assert!(symbol.is_some() || name.is_some() || description.is_some() || icon_url.is_some(), ENoChange);
 
@@ -344,7 +347,7 @@ public fun new_update<Config, CoinType>(
     if (!rules.can_update_description()) assert!(description.is_none(), ECannotUpdateDescription);
     if (!rules.can_update_icon()) assert!(icon_url.is_none(), ECannotUpdateIcon);
 
-    UpdateAction<CoinType> { symbol, name, description, icon_url }
+    intent.add_action(UpdateAction<CoinType> { symbol, name, description, icon_url }, intent_witness);
 }
 
 /// Processes an UpdateAction, updates the CoinMetadata.

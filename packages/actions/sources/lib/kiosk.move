@@ -18,7 +18,7 @@ use sui::{
 use kiosk::{kiosk_lock_rule, royalty_rule, personal_kiosk_rule};
 use account_protocol::{
     account::{Account, Auth},
-    intents::Expired,
+    intents::{Expired, Intent},
     executable::Executable,
     version_witness::VersionWitness,
 };
@@ -55,16 +55,6 @@ public struct ListAction has store {
 }
 
 // === Public functions ===
-
-public use fun take_action_name as TakeAction.name;
-public fun take_action_name(take_action: &TakeAction): String {
-    take_action.name
-}
-
-public use fun list_action_name as ListAction.name;
-public fun list_action_name(list_action: &ListAction): String {
-    list_action.name
-}
 
 /// Creates a new Kiosk and locks the KioskOwnerCap in the Account
 #[allow(lint(share_owned))]
@@ -189,8 +179,14 @@ public fun close<Config>(
 // Intent functions
 
 /// Creates a new TakeAction and adds it to an intent.
-public fun new_take(name: String, nft_id: ID, recipient: address): TakeAction {
-    TakeAction { name, nft_id, recipient }
+public fun new_take<Outcome, IW: drop>(
+    intent: &mut Intent<Outcome>,
+    name: String,
+    nft_id: ID,
+    recipient: address,
+    intent_witness: IW,
+) {
+    intent.add_action(TakeAction { name, nft_id, recipient }, intent_witness);
 }
 
 /// Processes a TakeAction, resolves the rules and places the nft into the recipient's kiosk.
@@ -237,8 +233,14 @@ public fun delete_take(expired: &mut Expired) {
 }
 
 /// Creates a new ListAction and adds it to an intent.
-public fun new_list(name: String, nft_id: ID, price: u64): ListAction {
-    ListAction { name, nft_id, price }
+public fun new_list<Outcome, IW: drop>(
+    intent: &mut Intent<Outcome>,
+    name: String,
+    nft_id: ID,
+    price: u64,
+    intent_witness: IW,
+) {
+    intent.add_action(ListAction { name, nft_id, price }, intent_witness);
 }
 
 /// Processes a ListAction and lists the nft for purchase.

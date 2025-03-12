@@ -58,7 +58,7 @@ public macro fun build_intent<$Config, $Outcome, $IW: drop>(
     $version_witness: VersionWitness,
     $intent_witness: $IW,
     $ctx: &mut TxContext,
-    $add_actions: |&mut Intent<$Outcome>, $IW|,
+    $new_actions: |&mut Intent<$Outcome>, $IW|,
 ) {
     let account = $account;
 
@@ -71,7 +71,7 @@ public macro fun build_intent<$Config, $Outcome, $IW: drop>(
         $ctx 
     );
 
-    $add_actions(&mut intent, $intent_witness);
+    $new_actions(&mut intent, $intent_witness);
 
     account.insert_intent(intent, $version_witness, $intent_witness);
 }

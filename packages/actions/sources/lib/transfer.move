@@ -6,7 +6,7 @@ module account_actions::transfer;
 // === Imports ===
 
 use account_protocol::{
-    intents::Expired,
+    intents::{Expired, Intent},
     executable::Executable,
 };
 
@@ -21,8 +21,12 @@ public struct TransferAction has store {
 // === Public functions ===
 
 /// Creates a TransferAction and adds it to an intent.
-public fun new_transfer(recipient: address): TransferAction {
-    TransferAction { recipient }
+public fun new_transfer<Outcome, IW: drop>(
+    intent: &mut Intent<Outcome>,
+    recipient: address,
+    intent_witness: IW,
+) {
+    intent.add_action(TransferAction { recipient }, intent_witness);
 }
 
 /// Processes a TransferAction and transfers an object to a recipient.

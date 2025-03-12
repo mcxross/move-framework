@@ -15,7 +15,7 @@ use sui::{
 };
 use account_protocol::{
     account::{Account, Auth},
-    intents::Expired,
+    intents::{Expired, Intent},
     executable::Executable,
     version_witness::VersionWitness,
 };
@@ -72,10 +72,6 @@ public struct RestrictAction has store {
 }
 
 // === Public Functions ===
-
-public fun upgrade_time(upgrade_action: &UpgradeAction): u64 {
-    upgrade_action.upgrade_time
-}
 
 /// Attaches the UpgradeCap as a Dynamic Object Field to the account.
 public fun lock_cap<Config>(
@@ -178,6 +174,7 @@ public fun get_package_addr<Config>(
 }
 
 /// Returns the package name for a given package address.
+#[allow(unused_assignment)] // false positive
 public fun get_package_name<Config>(
     account: &Account<Config>,
     package_addr: address
@@ -199,16 +196,18 @@ public fun get_package_name<Config>(
 // Intent functions
 
 /// Creates a new UpgradeAction and adds it to an intent.
-public fun new_upgrade<Config>(
+public fun new_upgrade<Config, Outcome, IW: drop>(
+    intent: &mut Intent<Outcome>,
     account: &Account<Config>,
     name: String,
     digest: vector<u8>, 
     clock: &Clock,
-): UpgradeAction {
+    intent_witness: IW,
+) {
     assert!(package_upgrade::has_cap(account, name), ENoLock);
     let upgrade_time = clock.timestamp_ms() + get_time_delay(account, name);
 
-    UpgradeAction { name, digest, upgrade_time }
+    intent.add_action(UpgradeAction { name, digest, upgrade_time }, intent_witness);
 }    
 
 /// Processes an UpgradeAction and returns a UpgradeTicket.
@@ -259,11 +258,13 @@ public fun delete_upgrade(expired: &mut Expired) {
 }
 
 /// Creates a new RestrictAction and adds it to an intent.
-public fun new_restrict<Config>(
+public fun new_restrict<Config, Outcome, IW: drop>(
+    intent: &mut Intent<Outcome>,
     account: &Account<Config>,
     name: String,
     policy: u8, 
-): RestrictAction {    
+    intent_witness: IW,
+) {
     assert!(package_upgrade::has_cap(account, name), ENoLock);
     let current_policy = package_upgrade::get_cap_policy(account, name);
     assert!(policy > current_policy, EPolicyShouldRestrict);
@@ -274,7 +275,7 @@ public fun new_restrict<Config>(
         EInvalidPolicy
     );
 
-    RestrictAction { name, policy }
+    intent.add_action(RestrictAction { name, policy }, intent_witness);
 }    
 
 /// Processes a RestrictAction and updates the UpgradeCap policy.

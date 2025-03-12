@@ -13,7 +13,7 @@ use sui::{
 };
 use account_protocol::{
     account::{Account, Auth},
-    intents::Expired,
+    intents::{Expired, Intent},
     executable::Executable,
 };
 
@@ -117,8 +117,14 @@ public fun destroy_cap(cap: ClaimCap) {
 // Intent functions
 
 /// Creates a VestAction and adds it to an intent.
-public fun new_vest(start_timestamp: u64, end_timestamp: u64, recipient: address): VestAction {
-    VestAction { start_timestamp, end_timestamp, recipient }
+public fun new_vest<Outcome, IW: drop>(
+    intent: &mut Intent<Outcome>,
+    start_timestamp: u64,
+    end_timestamp: u64,
+    recipient: address,
+    intent_witness: IW,
+) {
+    intent.add_action(VestAction { start_timestamp, end_timestamp, recipient }, intent_witness);
 }
 
 /// Processes a VestAction and creates a vesting.

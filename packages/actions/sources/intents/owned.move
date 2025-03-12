@@ -2,6 +2,7 @@ module account_actions::owned_intents;
 
 // === Imports ===
 
+use std::string::String;
 use sui::{
     transfer::Receiving,
     coin::Coin,
@@ -9,14 +10,14 @@ use sui::{
 use account_protocol::{
     account::{Account, Auth},
     executable::Executable,
-    owned::{Self, WithdrawAction},
+    owned,
     intents::Params,
     intent_interface,
 };
 use account_actions::{
-    transfer::{Self as acc_transfer, TransferAction},
-    vesting::{Self, VestAction},
-    vault::{Self, DepositAction},
+    transfer as acc_transfer,
+    vesting,
+    vault,
     version,
 };
 
@@ -46,8 +47,9 @@ public fun request_withdraw_and_transfer_to_vault<Config, Outcome: store, CoinTy
     account: &mut Account<Config>, 
     params: Params,
     outcome: Outcome,
-    withdraw_action: WithdrawAction,
-    deposit_action: DepositAction<CoinType>,
+    coin_id: ID,
+    coin_amount: u64,
+    vault_name: String,
     ctx: &mut TxContext
 ) {
     account.verify(auth);
@@ -61,8 +63,8 @@ public fun request_withdraw_and_transfer_to_vault<Config, Outcome: store, CoinTy
         WithdrawAndTransferToVaultIntent(),
         ctx,
         |intent, iw| {
-            intent.add_action(withdraw_action, iw);
-            intent.add_action(deposit_action, iw);
+            owned::new_withdraw(intent, account, coin_id, iw);
+            vault::new_deposit<_, CoinType, _>(intent, vault_name, coin_amount, iw);
         }
     );
 }
@@ -90,13 +92,13 @@ public fun request_withdraw_and_transfer<Config, Outcome: store>(
     account: &mut Account<Config>, 
     params: Params,
     outcome: Outcome,
-    withdraw_actions: vector<WithdrawAction>,
-    transfer_actions: vector<TransferAction>,
+    object_ids: vector<ID>,
+    recipients: vector<address>,
     ctx: &mut TxContext
 ) {
     account.verify(auth);
     params.assert_single_execution();
-    assert!(withdraw_actions.length() == transfer_actions.length(), EObjectsRecipientsNotSameLength);
+    assert!(object_ids.length() == recipients.length(), EObjectsRecipientsNotSameLength);
 
     account.build_intent!(
         params,
@@ -105,9 +107,9 @@ public fun request_withdraw_and_transfer<Config, Outcome: store>(
         version::current(),
         WithdrawAndTransferIntent(),
         ctx,
-        |intent, iw| withdraw_actions.zip_do!(transfer_actions, |withdraw_action, transfer_action| {
-            intent.add_action(withdraw_action, iw);
-            intent.add_action(transfer_action, iw);
+        |intent, iw| object_ids.zip_do!(recipients, |object_id, recipient| {
+            owned::new_withdraw(intent, account, object_id, iw);
+            acc_transfer::new_transfer(intent, recipient, iw);
         })
     );
 }
@@ -135,8 +137,10 @@ public fun request_withdraw_and_vest<Config, Outcome: store>(
     account: &mut Account<Config>, 
     params: Params,
     outcome: Outcome,
-    withdraw_action: WithdrawAction,
-    vest_action: VestAction,
+    coin_id: ID, // coin owned by the account, must have the total amount to be paid
+    start_timestamp: u64,
+    end_timestamp: u64,
+    recipient: address,
     ctx: &mut TxContext
 ) {
     account.verify(auth);
@@ -150,8 +154,8 @@ public fun request_withdraw_and_vest<Config, Outcome: store>(
         WithdrawAndVestIntent(),
         ctx,
         |intent, iw| {
-            intent.add_action(withdraw_action, iw);
-            intent.add_action(vest_action, iw);
+            owned::new_withdraw(intent, account, coin_id, iw);
+            vesting::new_vest(intent, start_timestamp, end_timestamp, recipient, iw);
         }
     );
 }

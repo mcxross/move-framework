@@ -2,6 +2,7 @@ module account_actions::vault_intents;
 
 // === Imports ===
 
+use std::string::String;
 use account_protocol::{
     account::{Account, Auth},
     executable::Executable,
@@ -9,9 +10,9 @@ use account_protocol::{
     intent_interface,
 };
 use account_actions::{
-    transfer::{Self as acc_transfer, TransferAction},
-    vesting::{Self, VestAction},
-    vault::{Self, SpendAction},
+    transfer as acc_transfer,
+    vesting,
+    vault,
     version,
 };
 
@@ -25,7 +26,6 @@ use fun intent_interface::process_intent as Account.process_intent;
 const ENotSameLength: u64 = 0;
 const EInsufficientFunds: u64 = 1;
 const ECoinTypeDoesntExist: u64 = 2;
-const ENotSameName: u64 = 3;
 
 // === Structs ===
 
@@ -42,28 +42,31 @@ public fun request_spend_and_transfer<Config, Outcome: store, CoinType: drop>(
     account: &mut Account<Config>, 
     params: Params,
     outcome: Outcome,
-    spend_actions: vector<SpendAction<CoinType>>,
-    transfer_actions: vector<TransferAction>,
+    vault_name: String,
+    amounts: vector<u64>,
+    recipients: vector<address>,
     ctx: &mut TxContext
 ) {
     account.verify(auth);
-    assert!(spend_actions.length() == transfer_actions.length(), ENotSameLength);
-    assert!(spend_actions.all!(|spend_action| spend_action.name() == spend_actions[0].name()), ENotSameName);
+    assert!(amounts.length() == recipients.length(), ENotSameLength);
     
-    let vault = vault::borrow_vault(account, spend_actions[0].name());
+    let vault = vault::borrow_vault(account, vault_name);
     assert!(vault.coin_type_exists<CoinType>(), ECoinTypeDoesntExist);
-    assert!(spend_actions.fold!(0, |sum, spend_action| sum + spend_action.amount()) <= vault.coin_type_value<CoinType>(), EInsufficientFunds);
+    assert!(
+        amounts.fold!(0u64, |sum, amount| sum + amount) <= vault.coin_type_value<CoinType>(), 
+        EInsufficientFunds
+    );
     
     account.build_intent!(
         params,
         outcome,
-        spend_actions[0].name(),
+        vault_name,
         version::current(),
         SpendAndTransferIntent(),
         ctx,
-        |intent, iw| spend_actions.zip_do!(transfer_actions, |spend_action, transfer_action| {
-            intent.add_action(spend_action, iw);
-            intent.add_action(transfer_action, iw);
+        |intent, iw| amounts.zip_do!(recipients, |amount, recipient| {
+            vault::new_spend<_, CoinType, _>(intent, vault_name, amount, iw);
+            acc_transfer::new_transfer(intent, recipient, iw);
         })
     );
 }
@@ -91,27 +94,30 @@ public fun request_spend_and_vest<Config, Outcome: store, CoinType: drop>(
     account: &mut Account<Config>, 
     params: Params,
     outcome: Outcome,
-    spend_action: SpendAction<CoinType>,
-    vest_action: VestAction,
+    vault_name: String, 
+    coin_amount: u64, 
+    start_timestamp: u64, 
+    end_timestamp: u64, 
+    recipient: address,
     ctx: &mut TxContext
 ) {
     account.verify(auth);
     params.assert_single_execution();
 
-    let vault = vault::borrow_vault(account, spend_action.name());
+    let vault = vault::borrow_vault(account, vault_name);
     assert!(vault.coin_type_exists<CoinType>(), ECoinTypeDoesntExist);
-    assert!(vault.coin_type_value<CoinType>() >= spend_action.amount(), EInsufficientFunds);
+    assert!(vault.coin_type_value<CoinType>() >= coin_amount, EInsufficientFunds);
 
     account.build_intent!(
         params,
         outcome,
-        spend_action.name(),
+        vault_name,
         version::current(),
         SpendAndVestIntent(),
         ctx,
         |intent, iw| {
-            intent.add_action(spend_action, iw);
-            intent.add_action(vest_action, iw);
+            vault::new_spend<_, CoinType, _>(intent, vault_name, coin_amount, iw);
+            vesting::new_vest(intent, start_timestamp, end_timestamp, recipient, iw);
         }
     );
 }

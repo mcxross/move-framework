@@ -20,7 +20,7 @@ module account_actions::access_control;
 
 use account_protocol::{
     account::{Account, Auth},
-    intents::Expired,
+    intents::{Expired, Intent},
     executable::Executable,
     version_witness::VersionWitness,
 };
@@ -30,8 +30,7 @@ use account_actions::version;
 
 const ENoLock: u64 = 0;
 const EAlreadyLocked: u64 = 1;
-const EWrongAccount: u64 = 2;
-const ENoReturn: u64 = 3;
+const ENoReturn: u64 = 2;
 
 // === Structs ===    
 
@@ -40,7 +39,6 @@ public struct CapKey<phantom Cap>() has copy, drop, store;
 
 /// Action giving access to the Cap.
 public struct BorrowAction<phantom Cap> has store {}
-
 /// This hot potato is created upon approval to ensure the cap is returned.
 public struct ReturnAction<phantom Cap> has store {}
 
@@ -67,13 +65,11 @@ public fun has_lock<Config, Cap>(
 // Intent functions
 
 /// Creates and returns a BorrowAction.
-public fun new_borrow<Cap>(): BorrowAction<Cap> {
-    BorrowAction<Cap> {}
-}
-
-/// Creates and returns a ReturnAction.
-public fun new_return<Cap>(): ReturnAction<Cap> {
-    ReturnAction<Cap> {}
+public fun new_borrow<Outcome, Cap, IW: drop>(
+    intent: &mut Intent<Outcome>, 
+    intent_witness: IW,    
+) {
+    intent.add_action(BorrowAction<Cap> {}, intent_witness);
 }
 
 /// Processes a BorrowAction and returns a Borrowed hot potato and the Cap.
@@ -92,6 +88,19 @@ public fun do_borrow<Config, Outcome: store, Cap: key + store, IW: drop>(
     account.remove_managed_asset(CapKey<Cap>(), version_witness)
 }
 
+/// Deletes a BorrowAction from an expired intent.
+public fun delete_borrow<Cap>(expired: &mut Expired) {
+    let BorrowAction<Cap> { .. } = expired.remove_action();
+}
+
+/// Creates and returns a ReturnAction.
+public fun new_return<Outcome, Cap, IW: drop>(
+    intent: &mut Intent<Outcome>, 
+    intent_witness: IW,
+) {
+    intent.add_action(ReturnAction<Cap> {}, intent_witness);
+}
+
 /// Returns a Cap to the Account and validates the ReturnAction.
 public fun do_return<Config, Outcome: store, Cap: key + store, IW: drop>(
     executable: &mut Executable<Outcome>,
@@ -104,11 +113,7 @@ public fun do_return<Config, Outcome: store, Cap: key + store, IW: drop>(
     account.add_managed_asset(CapKey<Cap>(), cap, version_witness);
 }
 
-/// Deletes a BorrowAction from an expired intent.
-public fun delete_borrow<Cap>(expired: &mut Expired) {
-    let BorrowAction<Cap> { .. } = expired.remove_action();
-}
-
+/// Deletes a ReturnAction from an expired intent.
 public fun delete_return<Cap>(expired: &mut Expired) {
     let ReturnAction<Cap> { .. } = expired.remove_action();
 }

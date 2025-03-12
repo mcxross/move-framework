@@ -152,7 +152,7 @@ public fun verify<Config>(
 
 /// Creates a new intent. Can only be called from a dependency of the account.
 public fun create_intent<Config, Outcome: store, IW: drop>(
-    account: &mut Account<Config>,
+    account: &Account<Config>,
     params: Params,
     outcome: Outcome, // resolution settings
     managed_name: String, // managed struct/object name for the role

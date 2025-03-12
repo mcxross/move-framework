@@ -9,7 +9,7 @@ use account_protocol::{
     intent_interface,
 };
 use account_actions::{
-    access_control::{Self as ac, BorrowAction, ReturnAction},
+    access_control as ac,
     version,
 };
 
@@ -35,8 +35,6 @@ public fun request_borrow_cap<Config, Outcome: store, Cap>(
     account: &mut Account<Config>,
     params: Params,
     outcome: Outcome,
-    borrow_action: BorrowAction<Cap>,
-    return_action: ReturnAction<Cap>,
     ctx: &mut TxContext
 ) {
     account.verify(auth);
@@ -50,8 +48,8 @@ public fun request_borrow_cap<Config, Outcome: store, Cap>(
         BorrowCapIntent(),
         ctx,
         |intent, iw| {
-            intent.add_action(borrow_action, iw);
-            intent.add_action(return_action, iw);
+            ac::new_borrow<_, Cap, _>(intent, iw);
+            ac::new_return<_, Cap, _>(intent, iw);
         },
     );
 }

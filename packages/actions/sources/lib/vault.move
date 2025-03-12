@@ -16,7 +16,7 @@ use sui::{
 };
 use account_protocol::{
     account::{Account, Auth},
-    intents::Expired,
+    intents::{Expired, Intent},
     executable::Executable,
     version_witness::VersionWitness,
 };
@@ -54,21 +54,6 @@ public struct SpendAction<phantom CoinType> has store {
 }
 
 // === Public Functions ===
-
-public use fun deposit_action_name as DepositAction.name;
-public fun deposit_action_name<CoinType>(deposit_action: &DepositAction<CoinType>): String {
-    deposit_action.name
-}
-
-public use fun spend_action_name as SpendAction.name;
-public fun spend_action_name<CoinType>(spend_action: &SpendAction<CoinType>): String {
-    spend_action.name
-}
-
-public use fun spend_action_amount as SpendAction.amount;
-public fun spend_action_amount<CoinType>(spend_action: &SpendAction<CoinType>): u64 {
-    spend_action.amount
-}
 
 /// Authorized address can open a vault.
 public fun open<Config>(
@@ -153,8 +138,13 @@ public fun coin_type_value<CoinType: drop>(vault: &Vault): u64 {
 // Intent functions
 
 /// Creates a DepositAction and adds it to an intent.
-public fun new_deposit<CoinType>(name: String, amount: u64): DepositAction<CoinType> {
-    DepositAction<CoinType> { name, amount }
+public fun new_deposit<Outcome, CoinType, IW: drop>(
+    intent: &mut Intent<Outcome>,
+    name: String,
+    amount: u64,
+    intent_witness: IW,
+) {
+    intent.add_action(DepositAction<CoinType> { name, amount }, intent_witness);
 }
 
 /// Processes a DepositAction and deposits a coin to the vault.
@@ -183,8 +173,13 @@ public fun delete_deposit<CoinType>(expired: &mut Expired) {
 }
 
 /// Creates a SpendAction and adds it to an intent.
-public fun new_spend<CoinType>(name: String, amount: u64): SpendAction<CoinType> {
-    SpendAction<CoinType> { name, amount }
+public fun new_spend<Outcome, CoinType, IW: drop>(
+    intent: &mut Intent<Outcome>,
+    name: String,
+    amount: u64,
+    intent_witness: IW,
+) {
+    intent.add_action(SpendAction<CoinType> { name, amount }, intent_witness);
 }
 
 /// Processes a SpendAction and takes a coin from the vault.

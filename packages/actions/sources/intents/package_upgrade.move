@@ -2,6 +2,7 @@ module account_actions::package_upgrade_intents;
 
 // === Imports ===
 
+use std::string::String;
 use sui::{
     package::UpgradeTicket,
     clock::Clock,
@@ -13,7 +14,7 @@ use account_protocol::{
     intent_interface,
 };
 use account_actions::{
-    package_upgrade::{Self, UpgradeAction, RestrictAction},
+    package_upgrade,
     version,
 };
 
@@ -21,10 +22,6 @@ use account_actions::{
 
 use fun intent_interface::build_intent as Account.build_intent;
 use fun intent_interface::process_intent as Account.process_intent;
-
-// === Errors ===
-
-const EInvalidExecutionTime: u64 = 0;
 
 // === Structs ===
 
@@ -41,21 +38,22 @@ public fun request_upgrade_package<Config, Outcome: store>(
     account: &mut Account<Config>, 
     params: Params,
     outcome: Outcome,
-    upgrade_action: UpgradeAction,
+    package_name: String,
+    digest: vector<u8>,
+    clock: &Clock,
     ctx: &mut TxContext
 ) {
     account.verify(auth);
     params.assert_single_execution();
-    assert!(params.execution_times()[0] >= upgrade_action.upgrade_time(), EInvalidExecutionTime);
 
     account.build_intent!(
         params,
         outcome,
-        b"".to_string(),
+        package_name,
         version::current(),
         UpgradePackageIntent(),
         ctx,
-        |intent, iw| intent.add_action(upgrade_action, iw),
+        |intent, iw| package_upgrade::new_upgrade(intent, account, package_name, digest, clock, iw),
     );
 }
 
@@ -81,7 +79,8 @@ public fun request_restrict_policy<Config, Outcome: store>(
     account: &mut Account<Config>, 
     params: Params,
     outcome: Outcome,
-    restrict_action: RestrictAction,
+    package_name: String,
+    policy: u8,
     ctx: &mut TxContext
 ) {
     account.verify(auth);
@@ -90,11 +89,11 @@ public fun request_restrict_policy<Config, Outcome: store>(
     account.build_intent!(
         params,
         outcome,
-        b"".to_string(),
+        package_name,
         version::current(),
         RestrictPolicyIntent(),
         ctx,
-        |intent, iw| intent.add_action(restrict_action, iw),
+        |intent, iw| package_upgrade::new_restrict(intent, account, package_name, policy, iw),
     );
 }
 
