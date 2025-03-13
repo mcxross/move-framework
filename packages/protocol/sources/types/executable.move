@@ -43,14 +43,6 @@ public fun contains_action<Outcome: store, Action: store>(
     contains
 }
 
-// === Package functions ===
-
-/// Creates a new executable from an intent
-public(package) fun new<Outcome: store>(intent: Intent<Outcome>): Executable<Outcome> {
-    Executable { intent, action_idx: 0 }
-}
-
-/// Returns the next action 
 public fun next_action<Outcome: store, Action: store, IW: drop>(
     executable: &mut Executable<Outcome>,
     intent_witness: IW,
@@ -63,7 +55,12 @@ public fun next_action<Outcome: store, Action: store, IW: drop>(
     executable.intent().actions().borrow(action_idx)
 }
 
-/// Destroys the executable
+// === Package functions ===
+
+public(package) fun new<Outcome: store>(intent: Intent<Outcome>): Executable<Outcome> {
+    Executable { intent, action_idx: 0 }
+}
+
 public(package) fun destroy<Outcome: store>(executable: Executable<Outcome>): Intent<Outcome> {
     let Executable { intent, .. } = executable;
     intent

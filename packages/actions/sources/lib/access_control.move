@@ -28,9 +28,7 @@ use account_actions::version;
 
 // === Errors ===
 
-const ENoLock: u64 = 0;
-const EAlreadyLocked: u64 = 1;
-const ENoReturn: u64 = 2;
+const ENoReturn: u64 = 0;
 
 // === Structs ===    
 
@@ -51,7 +49,6 @@ public fun lock_cap<Config, Cap: key + store>(
     cap: Cap,
 ) {
     account.verify(auth);
-    assert!(!has_lock<_, Cap>(account), EAlreadyLocked);
     account.add_managed_asset(CapKey<Cap>(), cap, version::current());
 }
 
@@ -79,7 +76,7 @@ public fun do_borrow<Config, Outcome: store, Cap: key + store, IW: drop>(
     version_witness: VersionWitness,
     intent_witness: IW, 
 ): Cap {
-    assert!(has_lock<_, Cap>(account), ENoLock);
+    executable.intent().assert_is_account(account.addr());
     // ensures there is a ReturnAction in the intent
     assert!(executable.contains_action<_, ReturnAction<Cap>>(), ENoReturn);
 
@@ -109,6 +106,8 @@ public fun do_return<Config, Outcome: store, Cap: key + store, IW: drop>(
     version_witness: VersionWitness,
     intent_witness: IW,
 ) {
+    executable.intent().assert_is_account(account.addr());
+    
     let _action: &ReturnAction<Cap> = executable.next_action(intent_witness);
     account.add_managed_asset(CapKey<Cap>(), cap, version_witness);
 }

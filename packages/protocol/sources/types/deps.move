@@ -162,15 +162,3 @@ public fun contains_addr(deps: &Deps, addr: address): bool {
 public(package) fun toggle_unverified_allowed(deps: &mut Deps) {
     deps.unverified_allowed = !deps.unverified_allowed;
 }
-
-// === Test functions ===
-
-#[test_only]
-public fun add_for_testing(deps: &mut Deps, extensions: &Extensions, name: String, addr: address, version: u64) {
-    assert!(!deps.inner.any!(|dep| dep.name == name), EDepAlreadyExists);
-    assert!(!deps.inner.any!(|dep| dep.addr == addr), EDepAlreadyExists);
-    if (!deps.unverified_allowed) 
-        assert!(extensions.is_extension(name, addr, version), ENotExtension);
-
-    deps.inner.push_back(Dep { name, addr, version });
-}

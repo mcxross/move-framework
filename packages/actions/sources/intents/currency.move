@@ -34,6 +34,13 @@ use fun intent_interface::process_intent as Account.process_intent;
 
 const EAmountsRecipentsNotSameLength: u64 = 0;
 const EMaxSupply: u64 = 1;
+const ENoLock: u64 = 2;
+const ECannotUpdateSymbol: u64 = 3;
+const ECannotUpdateName: u64 = 4;
+const ECannotUpdateDescription: u64 = 5;
+const ECannotUpdateIcon: u64 = 6;
+const EMintDisabled: u64 = 7;
+const EBurnDisabled: u64 = 8;
 
 // === Structs ===
 
@@ -66,6 +73,7 @@ public fun request_disable_rules<Config, Outcome: store, CoinType>(
 ) {
     account.verify(auth);
     params.assert_single_execution();
+    assert!(currency::has_cap<_, CoinType>(account), ENoLock);
 
     account.build_intent!(
         params,
@@ -74,8 +82,8 @@ public fun request_disable_rules<Config, Outcome: store, CoinType>(
         version::current(),
         DisableRulesIntent(),   
         ctx,
-        |intent, iw| currency::new_disable<_, Outcome, CoinType, _>(
-            intent, account, mint, burn, update_symbol, update_name, update_description, update_icon, iw
+        |intent, iw| currency::new_disable<_, CoinType, _>(
+            intent, mint, burn, update_symbol, update_name, update_description, update_icon, iw
         ),
     );
 }
@@ -107,7 +115,13 @@ public fun request_update_metadata<Config, Outcome: store, CoinType>(
 ) {
     account.verify(auth);
     params.assert_single_execution();
-    
+
+    let rules = currency::borrow_rules<_, CoinType>(account);
+    if (!rules.can_update_symbol()) assert!(md_symbol.is_none(), ECannotUpdateSymbol);
+    if (!rules.can_update_name()) assert!(md_name.is_none(), ECannotUpdateName);
+    if (!rules.can_update_description()) assert!(md_description.is_none(), ECannotUpdateDescription);
+    if (!rules.can_update_icon()) assert!(md_icon_url.is_none(), ECannotUpdateIcon);
+
     account.build_intent!(
         params,
         outcome, 
@@ -115,8 +129,8 @@ public fun request_update_metadata<Config, Outcome: store, CoinType>(
         version::current(),
         UpdateMetadataIntent(),
         ctx,
-        |intent, iw| currency::new_update<_, Outcome, CoinType, _>(
-            intent, account, md_symbol, md_name, md_description, md_icon_url, iw
+        |intent, iw| currency::new_update<_, CoinType, _>(
+            intent, md_symbol, md_name, md_description, md_icon_url, iw
         ),
     );
 }
@@ -149,6 +163,7 @@ public fun request_mint_and_transfer<Config, Outcome: store, CoinType>(
     assert!(amounts.length() == recipients.length(), EAmountsRecipentsNotSameLength);
 
     let rules = currency::borrow_rules<_, CoinType>(account);
+    assert!(rules.can_mint(), EMintDisabled);
     let sum = amounts.fold!(0, |sum, amount| sum + amount);
     if (rules.max_supply().is_some()) assert!(sum <= *rules.max_supply().borrow(), EMaxSupply);
 
@@ -160,7 +175,7 @@ public fun request_mint_and_transfer<Config, Outcome: store, CoinType>(
         MintAndTransferIntent(),
         ctx,
         |intent, iw| amounts.zip_do!(recipients, |amount, recipient| {
-            currency::new_mint<_, _, CoinType, _>(intent, account, amount, iw);
+            currency::new_mint<_, CoinType, _>(intent, amount, iw);
             acc_transfer::new_transfer(intent, recipient, iw);
         })
     );
@@ -199,6 +214,7 @@ public fun request_mint_and_vest<Config, Outcome: store, CoinType>(
     params.assert_single_execution();
 
     let rules = currency::borrow_rules<_, CoinType>(account);
+    assert!(rules.can_mint(), EMintDisabled);
     if (rules.max_supply().is_some()) assert!(total_amount <= *rules.max_supply().borrow(), EMaxSupply);
 
     account.build_intent!(
@@ -209,7 +225,7 @@ public fun request_mint_and_vest<Config, Outcome: store, CoinType>(
         MintAndVestIntent(),
         ctx,
         |intent, iw| {
-            currency::new_mint<_, _, CoinType, _>(intent, account, total_amount, iw);
+            currency::new_mint<_, CoinType, _>(intent, total_amount, iw);
             vesting::new_vest(intent, start_timestamp, end_timestamp, recipient, iw);
         }
     );
@@ -245,7 +261,11 @@ public fun request_withdraw_and_burn<Config, Outcome: store, CoinType>(
     account.verify(auth);
     params.assert_single_execution();
 
-    account.build_intent!(
+    let rules = currency::borrow_rules<_, CoinType>(account);
+    assert!(rules.can_burn(), EBurnDisabled);
+
+    intent_interface::build_intent!(
+        account,
         params,
         outcome, 
         type_name_to_string<CoinType>(),
@@ -253,8 +273,8 @@ public fun request_withdraw_and_burn<Config, Outcome: store, CoinType>(
         WithdrawAndBurnIntent(), 
         ctx,
         |intent, iw| {
-            currency::new_burn<_, _, CoinType, _>(intent, account, amount, iw);
             owned::new_withdraw(intent, account, coin_id, iw);
+            currency::new_burn<_, CoinType, _>(intent, amount, iw);
         }
     );
 }

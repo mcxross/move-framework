@@ -23,12 +23,12 @@ use account_actions::{
 
 // === Aliases ===
 
-use fun intent_interface::build_intent as Account.build_intent;
 use fun intent_interface::process_intent as Account.process_intent;
 
 // === Errors ===
 
 const EObjectsRecipientsNotSameLength: u64 = 0;
+const ENoVault: u64 = 1;
 
 // === Structs ===
 
@@ -54,8 +54,10 @@ public fun request_withdraw_and_transfer_to_vault<Config, Outcome: store, CoinTy
 ) {
     account.verify(auth);
     params.assert_single_execution();
+    assert!(vault::has_vault(account, vault_name), ENoVault);
 
-    account.build_intent!(
+    intent_interface::build_intent!(
+        account,
         params,
         outcome,
         b"".to_string(),
@@ -100,7 +102,8 @@ public fun request_withdraw_and_transfer<Config, Outcome: store>(
     params.assert_single_execution();
     assert!(object_ids.length() == recipients.length(), EObjectsRecipientsNotSameLength);
 
-    account.build_intent!(
+    intent_interface::build_intent!(
+        account,
         params,
         outcome,
         b"".to_string(),
@@ -146,7 +149,8 @@ public fun request_withdraw_and_vest<Config, Outcome: store>(
     account.verify(auth);
     params.assert_single_execution();
 
-    account.build_intent!(
+    intent_interface::build_intent!(
+        account,
         params,
         outcome,
         b"".to_string(),

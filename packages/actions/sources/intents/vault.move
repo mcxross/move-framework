@@ -98,7 +98,7 @@ public fun request_spend_and_vest<Config, Outcome: store, CoinType: drop>(
     coin_amount: u64, 
     start_timestamp: u64, 
     end_timestamp: u64, 
-    recipient: address,
+    recipient: address, 
     ctx: &mut TxContext
 ) {
     account.verify(auth);

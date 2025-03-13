@@ -24,9 +24,7 @@ use account_actions::version;
 
 // === Errors ===
 
-const EVaultDoesntExist: u64 = 0;
-const EVaultAlreadyExists: u64 = 1;
-const EVaultNotEmpty: u64 = 2;
+const EVaultNotEmpty: u64 = 0;
 
 // === Structs ===
 
@@ -63,7 +61,6 @@ public fun open<Config>(
     ctx: &mut TxContext
 ) {
     account.verify(auth);
-    assert!(!has_vault(account, name), EVaultAlreadyExists);
 
     account.add_managed_data(VaultKey(name), Vault { bag: bag::new(ctx) }, version::current());
 }
@@ -76,7 +73,6 @@ public fun deposit<Config, CoinType: drop>(
     coin: Coin<CoinType>, 
 ) {
     account.verify(auth);
-    assert!(has_vault(account, name), EVaultDoesntExist);
 
     let vault: &mut Vault = 
         account.borrow_managed_data_mut(VaultKey(name), version::current());
@@ -116,7 +112,6 @@ public fun borrow_vault<Config>(
     account: &Account<Config>, 
     name: String
 ): &Vault {
-    assert!(has_vault(account, name), EVaultDoesntExist);
     account.borrow_managed_data(VaultKey(name), version::current())
 }
 
@@ -155,6 +150,8 @@ public fun do_deposit<Config, Outcome: store, CoinType: drop, IW: drop>(
     version_witness: VersionWitness,
     intent_witness: IW,
 ) {
+    executable.intent().assert_is_account(account.addr());
+
     let action: &DepositAction<CoinType> = executable.next_action(intent_witness);
     assert!(action.amount == coin.value());
         
@@ -190,6 +187,8 @@ public fun do_spend<Config, Outcome: store, CoinType: drop, IW: drop>(
     intent_witness: IW,
     ctx: &mut TxContext
 ): Coin<CoinType> {
+    executable.intent().assert_is_account(account.addr());
+    
     let action: &SpendAction<CoinType> = executable.next_action(intent_witness);
         
     let vault: &mut Vault = account.borrow_managed_data_mut(VaultKey(action.name), version_witness);

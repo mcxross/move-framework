@@ -27,8 +27,6 @@ use account_actions::version;
 // === Errors ===
 
 const EWrongReceiver: u64 = 0;
-const ENoLock: u64 = 1;
-const EAlreadyExists: u64 = 2;
 
 // === Structs ===    
 
@@ -65,7 +63,6 @@ public fun open<Config>(
     ctx: &mut TxContext
 ) {
     account.verify(auth);
-    assert!(!has_lock<Config>(account, name), EAlreadyExists);
 
     let (mut kiosk, kiosk_owner_cap) = kiosk::new(ctx);
     kiosk.set_owner_custom(&kiosk_owner_cap, account.addr());
@@ -97,7 +94,6 @@ public fun place<Config, Nft: key + store>(
     ctx: &mut TxContext
 ): TransferRequest<Nft> {
     account.verify(auth);
-    assert!(has_lock<Config>(account, name), ENoLock);
 
     let cap: &KioskOwnerCap = account.borrow_managed_asset(KioskOwnerKey(name), version::current());
 
@@ -133,7 +129,6 @@ public fun delist<Config, Nft: key + store>(
     nft_id: ID,
 ) {
     account.verify(auth);
-    assert!(has_lock<Config>(account, name), ENoLock);
 
     let cap: &KioskOwnerCap = account.borrow_managed_asset(KioskOwnerKey(name), version::current());
     kiosk.delist<Nft>(cap, nft_id);
@@ -148,7 +143,6 @@ public fun withdraw_profits<Config>(
     ctx: &mut TxContext
 ) {
     account.verify(auth);
-    assert!(has_lock<Config>(account, name), ENoLock);
 
     let cap: &KioskOwnerCap = account.borrow_managed_asset(KioskOwnerKey(name), version::current());
 
@@ -168,7 +162,6 @@ public fun close<Config>(
     ctx: &mut TxContext
 ) {
     account.verify(auth);
-    assert!(has_lock<Config>(account, name), ENoLock);
 
     let cap: KioskOwnerCap = account.remove_managed_asset(KioskOwnerKey(name), version::current());
     let profits = kiosk.close_and_withdraw(cap, ctx);
@@ -201,6 +194,8 @@ public fun do_take<Config, Outcome: store, Nft: key + store, IW: drop>(
     intent_witness: IW,
     ctx: &mut TxContext
 ): TransferRequest<Nft> {
+    executable.intent().assert_is_account(account.addr());
+
     let action: &TakeAction = executable.next_action(intent_witness);
     assert!(action.recipient == ctx.sender(), EWrongReceiver);
 
@@ -251,6 +246,8 @@ public fun do_list<Config, Outcome: store, Nft: key + store, IW: drop>(
     version_witness: VersionWitness,
     intent_witness: IW,
 ) {
+    executable.intent().assert_is_account(account.addr());
+    
     let action: &ListAction = executable.next_action(intent_witness);
     let cap: &KioskOwnerCap = account.borrow_managed_asset(KioskOwnerKey(action.name), version_witness);
 

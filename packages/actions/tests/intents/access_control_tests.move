@@ -9,7 +9,11 @@ use sui::{
     clock::{Self, Clock},
 };
 use account_extensions::extensions::{Self, Extensions, AdminCap};
-use account_protocol::account::{Self, Account};
+use account_protocol::{
+    account::{Self, Account},
+    deps,
+    intents,
+};
 use account_actions::{
     access_control_intents,
     access_control,
@@ -46,7 +50,8 @@ fun start(): (Scenario, Extensions, Account<Config>, Clock) {
     extensions.add(&cap, b"AccountActions".to_string(), @account_actions, 1);
 
     // Create account using account_protocol
-    let account = account::new(&extensions, Config {}, false, vector[b"AccountProtocol".to_string(), b"AccountActions".to_string()], vector[@account_protocol, @account_actions], vector[1, 1], scenario.ctx());
+    let deps = deps::new_latest_extensions(&extensions, vector[b"AccountProtocol".to_string(), b"AccountActions".to_string()]);
+    let account = account::new(Config {}, deps, version::current(), Witness(), scenario.ctx());
     let clock = clock::create_for_testing(scenario.ctx());
     // create world
     destroy(cap);
@@ -75,27 +80,29 @@ fun test_request_execute_borrow_cap() {
 
     let auth = account.new_auth(version::current(), Witness());
     let outcome = Outcome {};
+    let params = intents::new_params(
+        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock
+    );
     access_control_intents::request_borrow_cap<Config, Outcome, Cap>(
         auth, 
-        outcome, 
         &mut account, 
-        key, 
-        b"".to_string(), 
-        vector[0],
-        1, 
+        params,
+        outcome, 
         scenario.ctx()
     );
 
-    let (mut executable, _) = account.execute_intent<_, Outcome, _>(key, &clock, version::current(), Witness());
+    let (_, mut executable) = account.create_executable<_, Outcome, _>(key, &clock, version::current(), Witness());
     assert!(access_control::has_lock<Config, Cap>(&account));
-    let (borrow, cap) = access_control_intents::execute_borrow_cap<Config, Outcome, Cap>(&mut executable, &mut account);
+    let cap = access_control_intents::execute_borrow_cap<Config, Outcome, Cap>(&mut executable, &mut account);
     assert!(!access_control::has_lock<Config, Cap>(&account));
     // do something with the cap
-    access_control_intents::complete_borrow_cap<_, Outcome, _>(executable, &mut account, borrow, cap);
+    access_control_intents::execute_return_cap<_, Outcome, _>(&mut executable, &mut account, cap);
     assert!(access_control::has_lock<Config, Cap>(&account)); 
-
+    
+    account.confirm_execution(executable);
     let mut expired = account.destroy_empty_intent<_, Outcome>(key);
     access_control::delete_borrow<Cap>(&mut expired);
+    access_control::delete_return<Cap>(&mut expired);
     expired.destroy_empty();
 
     end(scenario, extensions, account, clock);
@@ -104,18 +111,17 @@ fun test_request_execute_borrow_cap() {
 #[test, expected_failure(abort_code = access_control_intents::ENoLock)]
 fun test_error_request_borrow_cap_no_lock() {
     let (mut scenario, extensions, mut account, clock) = start();
-    let key = b"dummy".to_string();
 
     let auth = account.new_auth(version::current(), Witness());
     let outcome = Outcome {};
+    let params = intents::new_params(
+        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock
+    );
     access_control_intents::request_borrow_cap<Config, Outcome, Cap>(
         auth, 
-        outcome, 
         &mut account, 
-        key, 
-        b"".to_string(), 
-        vector[0],
-        1, 
+        params,
+        outcome, 
         scenario.ctx()
     );
 

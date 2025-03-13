@@ -10,7 +10,11 @@ use sui::{
     package::{Self, UpgradeCap},
 };
 use account_extensions::extensions::{Self, Extensions, AdminCap};
-use account_protocol::account::{Self, Account};
+use account_protocol::{
+    account::{Self, Account},
+    deps,
+    intents,
+};
 use account_actions::{
     package_upgrade,
     package_upgrade_intents,
@@ -23,7 +27,7 @@ const OWNER: address = @0xCAFE;
 
 // === Structs ===
 
-public struct Witness() has drop;
+public struct DummyIntent() has drop;
 
 public struct Config has copy, drop, store {}
 public struct Outcome has copy, drop, store {}
@@ -42,7 +46,8 @@ fun start(): (Scenario, Extensions, Account<Config>, Clock, UpgradeCap) {
     extensions.add(&cap, b"AccountProtocol".to_string(), @account_protocol, 1);
     extensions.add(&cap, b"AccountActions".to_string(), @account_actions, 1);
 
-    let account = account::new(&extensions, Config {}, false, vector[b"AccountProtocol".to_string(), b"AccountActions".to_string()], vector[@account_protocol, @account_actions], vector[1, 1], scenario.ctx());
+    let deps = deps::new_latest_extensions(&extensions, vector[b"AccountProtocol".to_string(), b"AccountActions".to_string()]);
+    let account = account::new(Config {}, deps, version::current(), DummyIntent(), scenario.ctx());
     let clock = clock::create_for_testing(scenario.ctx());
     let upgrade_cap = package::test_publish(@0x1.to_id(), scenario.ctx());
     // create world
@@ -64,34 +69,39 @@ fun test_request_execute_upgrade() {
     let (mut scenario, extensions, mut account, mut clock, upgrade_cap) = start();
     let key = b"dummy".to_string();
 
-    let auth = account.new_auth(version::current(), Witness());
+    let auth = account.new_auth(version::current(), DummyIntent());
     package_upgrade::lock_cap(auth, &mut account, upgrade_cap, b"Degen".to_string(), 1000);
 
-    let auth = account.new_auth(version::current(), Witness());
+    let auth = account.new_auth(version::current(), DummyIntent());
     let outcome = Outcome {};
-    package_upgrade_intents::request_upgrade_package(
-        auth, 
-        outcome, 
-        &mut account, 
+    let params = intents::new_params(
         key, 
         b"".to_string(), 
-        1000,
+        vector[1000],
         2000, 
-        b"Degen".to_string(),
-        b"", 
-        &clock, 
+        &clock
+    );
+    package_upgrade_intents::request_upgrade_package(
+        auth, 
+        &mut account, 
+        params,
+        outcome, 
+        b"Degen".to_string(), 
+        b"",
         scenario.ctx()
     );
 
     clock.increment_for_testing(1000);
-    let (mut executable, _) = account::execute_intent<_, Outcome, _>(&mut account, key, &clock, version::current(), Witness());
+    let (_, mut executable) = account.create_executable<_, Outcome, _>(key, &clock, version::current(), DummyIntent());
 
     let ticket = package_upgrade_intents::execute_upgrade_package<_, Outcome>(&mut executable, &mut account, &clock);
     let receipt = ticket.test_upgrade();
-    package_upgrade_intents::complete_upgrade_package<_, Outcome>(executable, &mut account, receipt);
+    package_upgrade_intents::execute_commit_upgrade<_, Outcome>(&mut executable, &mut account, receipt);
+    account.confirm_execution(executable);
 
     let mut expired = account.destroy_empty_intent<_, Outcome>(key);
     package_upgrade::delete_upgrade(&mut expired);
+    package_upgrade::delete_commit(&mut expired);
     expired.destroy_empty();
 
     end(scenario, extensions, account, clock);
@@ -102,73 +112,88 @@ fun test_request_execute_restrict_all() {
     let (mut scenario, extensions, mut account, mut clock, upgrade_cap) = start();
     let key = b"dummy".to_string();
 
-    let auth = account.new_auth(version::current(), Witness());
+    let auth = account.new_auth(version::current(), DummyIntent());
     package_upgrade::lock_cap(auth, &mut account, upgrade_cap, b"Degen".to_string(), 1000);
 
-    let auth = account.new_auth(version::current(), Witness());
+    let auth = account.new_auth(version::current(), DummyIntent());
     let outcome = Outcome {};
-    package_upgrade_intents::request_restrict_policy(
-        auth, 
-        outcome, 
-        &mut account, 
+    let params = intents::new_params(
         key, 
         b"".to_string(), 
-        0,
+        vector[0],
         2000, 
+        &clock
+    );
+    package_upgrade_intents::request_restrict_policy(
+        auth, 
+        &mut account, 
+        params,
+        outcome, 
         b"Degen".to_string(), 
         128, // additive
         scenario.ctx()
     );
 
     clock.increment_for_testing(1000);
-    let (executable, _) = account::execute_intent<_, Outcome, _>(&mut account, key, &clock, version::current(), Witness());
-    package_upgrade_intents::execute_restrict_policy<_, Outcome>(executable, &mut account);
+    let (_, mut executable) = account.create_executable<_, Outcome, _>(key, &clock, version::current(), DummyIntent());
+    package_upgrade_intents::execute_restrict_policy<_, Outcome>(&mut executable, &mut account);
+    account.confirm_execution(executable);
 
     let mut expired = account.destroy_empty_intent<_, Outcome>(key);
     package_upgrade::delete_restrict(&mut expired);
     expired.destroy_empty();
 
-    let auth = account.new_auth(version::current(), Witness());
+    let auth = account.new_auth(version::current(), DummyIntent());
     let outcome = Outcome {};
-    package_upgrade_intents::request_restrict_policy(
-        auth, 
-        outcome, 
-        &mut account, 
+    let params = intents::new_params(
         key, 
         b"".to_string(), 
-        0,
+        vector[0],
         3000, 
+        &clock
+    );
+    package_upgrade_intents::request_restrict_policy(
+        auth, 
+        &mut account, 
+        params,
+        outcome, 
         b"Degen".to_string(), 
         192, // deps only
         scenario.ctx()
     );
 
     clock.increment_for_testing(1000);
-    let (executable, _) = account::execute_intent<_, Outcome, _>(&mut account, key, &clock, version::current(), Witness());
-    package_upgrade_intents::execute_restrict_policy<_, Outcome>(executable, &mut account);
+    let (_, mut executable) = account.create_executable<_, Outcome, _>(key, &clock, version::current(), DummyIntent());
+    package_upgrade_intents::execute_restrict_policy<_, Outcome>(&mut executable, &mut account);
+    account.confirm_execution(executable);
 
     let mut expired = account.destroy_empty_intent<_, Outcome>(key);
     package_upgrade::delete_restrict(&mut expired);
     expired.destroy_empty();
 
-    let auth = account.new_auth(version::current(), Witness());
+    let auth = account.new_auth(version::current(), DummyIntent());
     let outcome = Outcome {};
-    package_upgrade_intents::request_restrict_policy(
-        auth, 
-        outcome, 
-        &mut account, 
+    let params = intents::new_params(
         key, 
         b"".to_string(), 
-        0,
+        vector[0],
         4000, 
+        &clock
+    );
+    package_upgrade_intents::request_restrict_policy(
+        auth, 
+        &mut account, 
+        params,
+        outcome, 
         b"Degen".to_string(), 
         255, // immutable
         scenario.ctx()
     );
 
     clock.increment_for_testing(1000);
-    let (executable, _) = account::execute_intent<_, Outcome, _>(&mut account, key, &clock, version::current(), Witness());
-    package_upgrade_intents::execute_restrict_policy<_, Outcome>(executable, &mut account);
+    let (_, mut executable) = account.create_executable<_, Outcome, _>(key, &clock, version::current(), DummyIntent());
+    package_upgrade_intents::execute_restrict_policy<_, Outcome>(&mut executable, &mut account);
+    account.confirm_execution(executable);
 
     let mut expired = account.destroy_empty_intent<_, Outcome>(key);
     package_upgrade::delete_restrict(&mut expired);
@@ -176,5 +201,61 @@ fun test_request_execute_restrict_all() {
     // lock destroyed with upgrade cap
     assert!(!package_upgrade::has_cap(&account, b"Degen".to_string()));
 
+    end(scenario, extensions, account, clock);
+}
+
+#[test, expected_failure(abort_code = package_upgrade_intents::EPolicyShouldRestrict)]
+fun test_error_new_restrict_not_restrictive() {
+    let (mut scenario, extensions, mut account, clock, upgrade_cap) = start();
+
+    let auth = account.new_auth(version::current(), DummyIntent());
+    package_upgrade::lock_cap(auth, &mut account, upgrade_cap, b"Degen".to_string(), 1000);
+
+    let auth = account.new_auth(version::current(), DummyIntent());
+    let params = intents::new_params(
+        b"dummy".to_string(), 
+        b"".to_string(), 
+        vector[0], 
+        1000, 
+        &clock
+    );
+    package_upgrade_intents::request_restrict_policy(
+        auth, 
+        &mut account, 
+        params,
+        Outcome {},
+        b"Degen".to_string(), 
+        0, 
+        scenario.ctx()
+    );
+    
+    end(scenario, extensions, account, clock);
+}
+
+#[test, expected_failure(abort_code = package_upgrade_intents::EInvalidPolicy)]
+fun test_error_new_restrict_invalid_policy() {
+    let (mut scenario, extensions, mut account, clock, upgrade_cap) = start();
+
+    let auth = account.new_auth(version::current(), DummyIntent());
+    package_upgrade::lock_cap(auth, &mut account, upgrade_cap, b"Degen".to_string(), 1000);
+
+    let auth = account.new_auth(version::current(), DummyIntent());
+    let params = intents::new_params(
+        b"dummy".to_string(), 
+        b"".to_string(), 
+        vector[0], 
+        1000, 
+        &clock
+    );
+    package_upgrade_intents::request_restrict_policy(
+        auth, 
+        &mut account, 
+        params,
+        Outcome {},
+        b"Degen".to_string(), 
+        100, // additive
+        scenario.ctx()
+    );
+    
     end(scenario, extensions, account, clock);
 }

@@ -9,7 +9,7 @@ module account_protocol::intent_interface;
 
 use std::string::String;
 use account_protocol::{
-    account::Account,
+    account::{Self, Account},
     intents::{Intent, Params},
     version_witness::VersionWitness,
     executable::Executable,
@@ -60,9 +60,8 @@ public macro fun build_intent<$Config, $Outcome, $IW: drop>(
     $ctx: &mut TxContext,
     $new_actions: |&mut Intent<$Outcome>, $IW|,
 ) {
-    let account = $account;
-
-    let mut intent = account.create_intent(
+    let mut intent = account::create_intent(
+        $account,
         $params,
         $outcome,
         $managed_name,
@@ -73,7 +72,7 @@ public macro fun build_intent<$Config, $Outcome, $IW: drop>(
 
     $new_actions(&mut intent, $intent_witness);
 
-    account.insert_intent(intent, $version_witness, $intent_witness);
+    account::insert_intent($account, intent, $version_witness, $intent_witness);
 }
 
 /// Example implementation:

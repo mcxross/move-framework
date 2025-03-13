@@ -13,9 +13,7 @@ use sui::{
 use account_extensions::extensions::{Self, Extensions, AdminCap};
 use account_protocol::{
     account::{Self, Account},
-    intents::Intent,
-    issuer,
-    version_witness,
+    intents::{Self, Intent},
     deps,
 };
 use account_actions::{
@@ -53,8 +51,8 @@ fun start(): (Scenario, Extensions, Account<Config>, Clock) {
     extensions.add(&cap, b"AccountProtocol".to_string(), @account_protocol, 1);
     extensions.add(&cap, b"AccountActions".to_string(), @account_actions, 1);
 
-    let mut account = account::new(&extensions, Config {}, false, vector[b"AccountProtocol".to_string()], vector[@account_protocol], vector[1], scenario.ctx());
-    account.deps_mut_for_testing().add_for_testing(&extensions, b"AccountActions".to_string(), @account_actions, 1);
+    let deps = deps::new_latest_extensions(&extensions, vector[b"AccountProtocol".to_string(), b"AccountActions".to_string()]);
+    let account = account::new(Config {}, deps, version::current(), DummyIntent(), scenario.ctx());
     let clock = clock::create_for_testing(scenario.ctx());
     // create world
     destroy(cap);
@@ -70,15 +68,16 @@ fun end(scenario: Scenario, extensions: Extensions, account: Account<Config>, cl
 
 fun create_dummy_intent(
     scenario: &mut Scenario,
-    account: &mut Account<Config>, 
+    account: &Account<Config>, 
+    clock: &Clock,
 ): Intent<Outcome> {
+    let params = intents::new_params(
+        b"dummy".to_string(), b"".to_string(), vector[0], 1, clock
+    );
     account.create_intent(
-        b"dummy".to_string(), 
-        b"".to_string(), 
-        vector[0],
-        1, 
-        b"".to_string(), 
+        params,
         Outcome {}, 
+        b"Degen".to_string(), 
         version::current(), 
         DummyIntent(), 
         scenario.ctx()
@@ -94,19 +93,17 @@ fun test_transfer_flow() {
 
     let obj = Obj { id: object::new(scenario.ctx()) };
 
-    let mut intent = create_dummy_intent(&mut scenario, &mut account);
-    acc_transfer::new_transfer(&mut intent, &account, OWNER, version::current(), DummyIntent());
-    account.add_intent(intent, version::current(), DummyIntent());
+    let mut intent = create_dummy_intent(&mut scenario, &account, &clock);
+    acc_transfer::new_transfer(&mut intent, OWNER, DummyIntent());
+    account.insert_intent(intent, version::current(), DummyIntent());
 
-    let (mut executable, _) = account.execute_intent<_, Outcome, _>(key, &clock, version::current(), DummyIntent());
-    acc_transfer::do_transfer<_, Outcome, _, _>(
+    let (_, mut executable) = account.create_executable(key, &clock, version::current(), DummyIntent());
+    acc_transfer::do_transfer<Outcome, Obj, _>(
         &mut executable, 
-        &mut account, 
         obj,
-        version::current(), 
         DummyIntent(),
     );
-    account.confirm_execution<_, Outcome, _>(executable, version::current(), DummyIntent());
+    account.confirm_execution(executable);
 
     scenario.next_tx(OWNER);
     assert!(scenario.has_most_recent_for_sender<Obj>());
@@ -116,73 +113,21 @@ fun test_transfer_flow() {
 
 // sanity checks as these are tested in AccountProtocol tests
 
-#[test, expected_failure(abort_code = issuer::EWrongAccount)]
-fun test_error_do_transfer_from_wrong_account() {
-    let (mut scenario, extensions, mut account, clock) = start();
-    let mut account2 = account::new(&extensions, Config {}, false, vector[b"AccountProtocol".to_string()], vector[@account_protocol], vector[1], scenario.ctx());
-    account2.deps_mut_for_testing().add_for_testing(&extensions, b"AccountActions".to_string(), @account_actions, 1);
-    let key = b"dummy".to_string();
-
-    // intent is submitted to other account
-    let mut intent = create_dummy_intent(&mut scenario, &mut account2);
-    acc_transfer::new_transfer(&mut intent, &account2, OWNER, version::current(), DummyIntent());
-    account2.add_intent(intent, version::current(), DummyIntent());
-
-    let (mut executable, _) = account2.execute_intent<_, Outcome, _>(key, &clock, version::current(), DummyIntent());
-    // try to disable from the account that didn't approve the intent
-    acc_transfer::do_transfer<_, Outcome, _, _>(
-        &mut executable, 
-        &mut account, 
-        coin::mint_for_testing<SUI>(6, scenario.ctx()),
-        version::current(), 
-        DummyIntent(),
-    );
-
-    destroy(account2);
-    destroy(executable);
-    end(scenario, extensions, account, clock);
-}
-
-#[test, expected_failure(abort_code = issuer::EWrongWitness)]
+#[test, expected_failure(abort_code = intents::EWrongWitness)]
 fun test_error_do_transfer_from_wrong_constructor_witness() {
     let (mut scenario, extensions, mut account, clock) = start();
     let key = b"dummy".to_string();
 
-    let mut intent = create_dummy_intent(&mut scenario, &mut account);
-    acc_transfer::new_transfer(&mut intent, &account, OWNER, version::current(), DummyIntent());
-    account.add_intent(intent, version::current(), DummyIntent());
+    let mut intent = create_dummy_intent(&mut scenario, &account, &clock);
+    acc_transfer::new_transfer(&mut intent, OWNER, DummyIntent());
+    account.insert_intent(intent, version::current(), DummyIntent());
 
-    let (mut executable, _) = account.execute_intent<_, Outcome, _>(key, &clock, version::current(), DummyIntent());
+    let (_, mut executable) = account.create_executable(key, &clock, version::current(), DummyIntent());
     // try to disable with the wrong witness that didn't approve the intent
-    acc_transfer::do_transfer<_, Outcome, _, _>(
+    acc_transfer::do_transfer<Outcome, _, _>(
         &mut executable, 
-        &mut account, 
         coin::mint_for_testing<SUI>(6, scenario.ctx()),
-        version::current(), 
         WrongWitness(),
-    );
-
-    destroy(executable);
-    end(scenario, extensions, account, clock);
-}
-
-#[test, expected_failure(abort_code = deps::ENotDep)]
-fun test_error_do_transfer_from_not_dep() {
-    let (mut scenario, extensions, mut account, clock) = start();
-    let key = b"dummy".to_string();
-
-    let mut intent = create_dummy_intent(&mut scenario, &mut account);
-    acc_transfer::new_transfer(&mut intent, &account, OWNER, version::current(), DummyIntent());
-    account.add_intent(intent, version::current(), DummyIntent());
-
-    let (mut executable, _) = account.execute_intent<_, Outcome, _>(key, &clock, version::current(), DummyIntent());
-    // try to disable with the wrong version TypeName that didn't approve the intent
-    acc_transfer::do_transfer<_, Outcome, _, _>(
-        &mut executable, 
-        &mut account, 
-        coin::mint_for_testing<SUI>(6, scenario.ctx()),
-        version_witness::new_for_testing(@0xFA153), 
-        DummyIntent(),
     );
 
     destroy(executable);

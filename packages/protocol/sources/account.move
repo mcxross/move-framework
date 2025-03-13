@@ -51,6 +51,10 @@ const ECantBeExecutedYet: u64 = 3;
 const EWrongAccount: u64 = 4;
 const ENotCalledFromConfigModule: u64 = 5;
 const EActionsRemaining: u64 = 6;
+const EManagedDataAlreadyExists: u64 = 7;
+const EManagedDataDoesntExist: u64 = 8;
+const EManagedAssetAlreadyExists: u64 = 9;
+const EManagedAssetDoesntExist: u64 = 10;
 
 // === Structs ===
 
@@ -201,6 +205,7 @@ public fun add_managed_data<Config, K: copy + drop + store, Data: store>(
     data: Data,
     version_witness: VersionWitness,
 ) {
+    assert!(!has_managed_data(account, key), EManagedDataAlreadyExists);
     account.deps().check(version_witness);
     df::add(&mut account.id, key, data);
 }
@@ -219,6 +224,7 @@ public fun borrow_managed_data<Config, K: copy + drop + store, Data: store>(
     key: K, 
     version_witness: VersionWitness,
 ): &Data {
+    assert!(has_managed_data(account, key), EManagedDataDoesntExist);
     account.deps().check(version_witness);
     df::borrow(&account.id, key)
 }
@@ -229,6 +235,7 @@ public fun borrow_managed_data_mut<Config, K: copy + drop + store, Data: store>(
     key: K, 
     version_witness: VersionWitness,
 ): &mut Data {
+    assert!(has_managed_data(account, key), EManagedDataDoesntExist);
     account.deps().check(version_witness);
     df::borrow_mut(&mut account.id, key)
 }
@@ -239,6 +246,7 @@ public fun remove_managed_data<Config, K: copy + drop + store, A: store>(
     key: K, 
     version_witness: VersionWitness,
 ): A {
+    assert!(has_managed_data(account, key), EManagedDataDoesntExist);
     account.deps().check(version_witness);
     df::remove(&mut account.id, key)
 }
@@ -250,6 +258,7 @@ public fun add_managed_asset<Config, K: copy + drop + store, Asset: key + store>
     asset: Asset,
     version_witness: VersionWitness,
 ) {
+    assert!(!has_managed_asset(account, key), EManagedAssetAlreadyExists);
     account.deps().check(version_witness);
     dof::add(&mut account.id, key, asset);
 }
@@ -268,6 +277,7 @@ public fun borrow_managed_asset<Config, K: copy + drop + store, Asset: key + sto
     key: K, 
     version_witness: VersionWitness,
 ): &Asset {
+    assert!(has_managed_asset(account, key), EManagedAssetDoesntExist);
     account.deps().check(version_witness);
     dof::borrow(&account.id, key)
 }
@@ -278,6 +288,7 @@ public fun borrow_managed_asset_mut<Config, K: copy + drop + store, Asset: key +
     key: K, 
     version_witness: VersionWitness,
 ): &mut Asset {
+    assert!(has_managed_asset(account, key), EManagedAssetDoesntExist);
     account.deps().check(version_witness);
     dof::borrow_mut(&mut account.id, key)
 }
@@ -288,6 +299,7 @@ public fun remove_managed_asset<Config, K: copy + drop + store, Asset: key + sto
     key: K, 
     version_witness: VersionWitness,
 ): Asset {
+    assert!(has_managed_asset(account, key), EManagedAssetDoesntExist);
     account.deps().check(version_witness);
     dof::remove(&mut account.id, key)
 }
@@ -486,9 +498,4 @@ public struct Witness() has drop;
 #[test_only]
 public fun not_config_witness(): Witness {
     Witness()
-}
-
-#[test_only]
-public fun deps_mut_for_testing<Config>(account: &mut Account<Config>): &mut Deps {
-    &mut account.deps
 }

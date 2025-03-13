@@ -26,6 +26,7 @@ use fun intent_interface::process_intent as Account.process_intent;
 // === Errors ===
 
 const ENoLock: u64 = 0;
+const ENftsPricesNotSameLength: u64 = 1;
 
 // === Structs ===
 
@@ -103,6 +104,7 @@ public fun request_list_nfts<Config, Outcome: store>(
 ) {
     account.verify(auth);
     assert!(acc_kiosk::has_lock(account, kiosk_name), ENoLock);
+    assert!(nft_ids.length() == prices.length(), ENftsPricesNotSameLength);
 
     account.build_intent!(
         params,

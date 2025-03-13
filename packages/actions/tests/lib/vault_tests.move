@@ -13,10 +13,8 @@ use sui::{
 use account_extensions::extensions::{Self, Extensions, AdminCap};
 use account_protocol::{
     account::{Self, Account},
-    intents::Intent,
-    issuer,
+    intents::{Self, Intent},
     deps,
-    version_witness,
 };
 use account_actions::{
     version,
@@ -51,8 +49,8 @@ fun start(): (Scenario, Extensions, Account<Config>, Clock) {
     extensions.add(&cap, b"AccountProtocol".to_string(), @account_protocol, 1);
     extensions.add(&cap, b"AccountActions".to_string(), @account_actions, 1);
 
-    let mut account = account::new(&extensions, Config {}, false, vector[b"AccountProtocol".to_string()], vector[@account_protocol], vector[1], scenario.ctx());
-    account.deps_mut_for_testing().add_for_testing(&extensions, b"AccountActions".to_string(), @account_actions, 1);
+    let deps = deps::new_latest_extensions(&extensions, vector[b"AccountProtocol".to_string(), b"AccountActions".to_string()]);
+    let account = account::new(Config {}, deps, version::current(), DummyIntent(), scenario.ctx());
     let clock = clock::create_for_testing(scenario.ctx());
     // create world
     destroy(cap);
@@ -68,15 +66,16 @@ fun end(scenario: Scenario, extensions: Extensions, account: Account<Config>, cl
 
 fun create_dummy_intent(
     scenario: &mut Scenario,
-    account: &mut Account<Config>, 
+    account: &Account<Config>, 
+    clock: &Clock,
 ): Intent<Outcome> {
+    let params = intents::new_params(
+        b"dummy".to_string(), b"".to_string(), vector[0], 1, clock
+    );
     account.create_intent(
-        b"dummy".to_string(), 
-        b"".to_string(), 
-        vector[0],
-        1, 
-        b"Degen".to_string(), 
+        params,
         Outcome {}, 
+        b"Degen".to_string(), 
         version::current(), 
         DummyIntent(), 
         scenario.ctx()
@@ -151,25 +150,23 @@ fun test_close_vault() {
         coin::mint_for_testing<SUI>(5, scenario.ctx())
     );
 
-    let mut intent = create_dummy_intent(&mut scenario, &mut account);
-    vault::new_spend<Config, Outcome, SUI, DummyIntent>(
+    let mut intent = create_dummy_intent(&mut scenario, &account, &clock);
+    vault::new_spend<_, SUI, _>(
         &mut intent, 
-        &account,
         b"Degen".to_string(),
         5,
-        version::current(),
         DummyIntent(),
     );
-    account.add_intent(intent, version::current(), DummyIntent());
-    let (mut executable, _) = account.execute_intent<_, Outcome, _>(b"dummy".to_string(), &clock, version::current(), DummyIntent());
-    let coin = vault::do_spend<Config, Outcome, SUI, DummyIntent>(
+    account.insert_intent(intent, version::current(), DummyIntent());
+    let (_, mut executable) = account.create_executable(b"dummy".to_string(), &clock, version::current(), DummyIntent());
+    let coin = vault::do_spend<_, Outcome, SUI, _>(
         &mut executable, 
         &mut account, 
         version::current(), 
         DummyIntent(),
         scenario.ctx()
     );
-    account.confirm_execution<_, Outcome, _>(executable, version::current(), DummyIntent());
+    account.confirm_execution(executable);
 
     let auth = account.new_auth(version::current(), DummyIntent());
     vault::close(auth, &mut account, b"Degen".to_string());
@@ -186,26 +183,24 @@ fun test_deposit_flow() {
     vault::open(auth, &mut account, b"Degen".to_string(), scenario.ctx());
     let key = b"dummy".to_string();
 
-    let mut intent = create_dummy_intent(&mut scenario, &mut account);
-    vault::new_deposit<Config, Outcome, SUI, DummyIntent>(
+    let mut intent = create_dummy_intent(&mut scenario, &account, &clock);
+    vault::new_deposit<_, SUI, _>(
         &mut intent, 
-        &account,
         b"Degen".to_string(),
         5,
-        version::current(),
         DummyIntent(),
     );
-    account.add_intent(intent, version::current(), DummyIntent());
+    account.insert_intent(intent, version::current(), DummyIntent());
 
-    let (mut executable, _) = account.execute_intent<_, Outcome, _>(key, &clock, version::current(), DummyIntent());
-    vault::do_deposit<Config, Outcome, SUI, DummyIntent>(
+    let (_, mut executable) = account.create_executable(key, &clock, version::current(), DummyIntent());
+    vault::do_deposit<_, Outcome, SUI, _>(
         &mut executable, 
         &mut account, 
         coin::mint_for_testing<SUI>(5, scenario.ctx()),
         version::current(), 
         DummyIntent(),
     );
-    account.confirm_execution<_, Outcome, _>(executable, version::current(), DummyIntent());
+    account.confirm_execution(executable);
 
     let vault = vault::borrow_vault(&account, b"Degen".to_string());
     assert!(vault.coin_type_value<SUI>() == 5);
@@ -228,26 +223,24 @@ fun test_deposit_flow_joining_balances() {
         coin::mint_for_testing<SUI>(5, scenario.ctx())
     );
 
-    let mut intent = create_dummy_intent(&mut scenario, &mut account);
-    vault::new_deposit<Config, Outcome, SUI, DummyIntent>(
+    let mut intent = create_dummy_intent(&mut scenario, &account, &clock);
+    vault::new_deposit<_, SUI, _>(
         &mut intent, 
-        &account,
         b"Degen".to_string(),
         5,
-        version::current(),
         DummyIntent(),
     );
-    account.add_intent(intent, version::current(), DummyIntent());
+    account.insert_intent(intent, version::current(), DummyIntent());
 
-    let (mut executable, _) = account.execute_intent<_, Outcome, _>(key, &clock, version::current(), DummyIntent());
-    vault::do_deposit<Config, Outcome, SUI, DummyIntent>(
+    let (_, mut executable) = account.create_executable(key, &clock, version::current(), DummyIntent());
+    vault::do_deposit<_, Outcome, SUI, _>(
         &mut executable, 
         &mut account, 
         coin::mint_for_testing<SUI>(5, scenario.ctx()),
         version::current(), 
         DummyIntent(),
     );
-    account.confirm_execution<_, Outcome, _>(executable, version::current(), DummyIntent());
+    account.confirm_execution(executable);
 
     let vault = vault::borrow_vault(&account, b"Degen".to_string());
     assert!(vault.coin_type_value<SUI>() == 10);
@@ -270,26 +263,24 @@ fun test_deposit_flow_multiple_coins() {
         coin::mint_for_testing<VAULT_TESTS>(5, scenario.ctx())
     );
 
-    let mut intent = create_dummy_intent(&mut scenario, &mut account);
-    vault::new_deposit<Config, Outcome, SUI, DummyIntent>(
+    let mut intent = create_dummy_intent(&mut scenario, &account, &clock);
+    vault::new_deposit<_, SUI, _>(
         &mut intent, 
-        &account,
         b"Degen".to_string(),
         5,
-        version::current(),
         DummyIntent(),
     );
-    account.add_intent(intent, version::current(), DummyIntent());
+    account.insert_intent(intent, version::current(), DummyIntent());
 
-    let (mut executable, _) = account.execute_intent<_, Outcome, _>(key, &clock, version::current(), DummyIntent());
-    vault::do_deposit<Config, Outcome, SUI, DummyIntent>(
+    let (_, mut executable) = account.create_executable(key, &clock, version::current(), DummyIntent());
+    vault::do_deposit<_, Outcome, SUI, _>(
         &mut executable, 
         &mut account, 
         coin::mint_for_testing<SUI>(5, scenario.ctx()),
         version::current(), 
         DummyIntent(),
     );
-    account.confirm_execution<_, Outcome, _>(executable, version::current(), DummyIntent());
+    account.confirm_execution(executable);
 
     let vault = vault::borrow_vault(&account, b"Degen".to_string());
     assert!(vault.size() == 2);
@@ -305,16 +296,14 @@ fun test_deposit_expired() {
     clock.increment_for_testing(1);
     let key = b"dummy".to_string();
 
-    let mut intent = create_dummy_intent(&mut scenario, &mut account);
-    vault::new_deposit<Config, Outcome, SUI, DummyIntent>(
+    let mut intent = create_dummy_intent(&mut scenario, &account, &clock);
+    vault::new_deposit<_, SUI, _>(
         &mut intent, 
-        &account,
         b"Degen".to_string(),
         2,
-        version::current(),
         DummyIntent(),
     );
-    account.add_intent(intent, version::current(), DummyIntent());
+    account.insert_intent(intent, version::current(), DummyIntent());
     
     let mut expired = account.delete_expired_intent<_, Outcome>(key, &clock);
     vault::delete_deposit<SUI>(&mut expired);
@@ -338,26 +327,24 @@ fun test_spend_flow() {
         coin::mint_for_testing<SUI>(5, scenario.ctx())
     );
 
-    let mut intent = create_dummy_intent(&mut scenario, &mut account);
-    vault::new_spend<Config, Outcome, SUI, DummyIntent>(
+    let mut intent = create_dummy_intent(&mut scenario, &account, &clock);
+    vault::new_spend<_, SUI, _>(
         &mut intent, 
-        &account,
         b"Degen".to_string(),
         2,
-        version::current(),
         DummyIntent(),
     );
-    account.add_intent(intent, version::current(), DummyIntent());
+    account.insert_intent(intent, version::current(), DummyIntent());
 
-    let (mut executable, _) = account.execute_intent<_, Outcome, _>(key, &clock, version::current(), DummyIntent());
-    let coin = vault::do_spend<Config, Outcome, SUI, DummyIntent>(
+    let (_, mut executable) = account.create_executable(key, &clock, version::current(), DummyIntent());
+    let coin = vault::do_spend<_, Outcome, SUI, _>(
         &mut executable, 
         &mut account, 
         version::current(), 
         DummyIntent(),
         scenario.ctx()
     );
-    account.confirm_execution<_, Outcome, _>(executable, version::current(), DummyIntent());
+    account.confirm_execution(executable);
 
     let vault = vault::borrow_vault(&account, b"Degen".to_string());
     assert!(vault.coin_type_value<SUI>() == 3);
@@ -373,47 +360,18 @@ fun test_spend_expired() {
     clock.increment_for_testing(1);
     let key = b"dummy".to_string();
 
-    let mut intent = create_dummy_intent(&mut scenario, &mut account);
-    vault::new_spend<Config, Outcome, SUI, DummyIntent>(
+    let mut intent = create_dummy_intent(&mut scenario, &account, &clock);
+    vault::new_spend<_, SUI, _>(
         &mut intent, 
-        &account,
         b"Degen".to_string(),
         2,
-        version::current(),
         DummyIntent(),
     );
-    account.add_intent(intent, version::current(), DummyIntent());
+    account.insert_intent(intent, version::current(), DummyIntent());
     
     let mut expired = account.delete_expired_intent<_, Outcome>(key, &clock);
     vault::delete_spend<SUI>(&mut expired);
     expired.destroy_empty();
-
-    end(scenario, extensions, account, clock);
-}
-
-#[test, expected_failure(abort_code = vault::EVaultAlreadyExists)]
-fun test_error_open_vault_already_exists() {
-    let (mut scenario, extensions, mut account, clock) = start();
-
-    let auth = account.new_auth(version::current(), DummyIntent());
-    vault::open(auth, &mut account, b"Degen".to_string(), scenario.ctx());
-    let auth = account.new_auth(version::current(), DummyIntent());
-    vault::open(auth, &mut account, b"Degen".to_string(), scenario.ctx());
-
-    end(scenario, extensions, account, clock);
-}
-
-#[test, expected_failure(abort_code = vault::EVaultDoesntExist)]
-fun test_error_deposit_vault_doesnt_exist() {
-    let (mut scenario, extensions, mut account, clock) = start();
-
-    let auth = account.new_auth(version::current(), DummyIntent());
-    vault::deposit<Config, SUI>(
-        auth, 
-        &mut account, 
-        b"Degen".to_string(), 
-        coin::mint_for_testing<SUI>(5, scenario.ctx())
-    );
 
     end(scenario, extensions, account, clock);
 }
@@ -441,30 +399,28 @@ fun test_error_close_not_empty() {
 
 // sanity checks as these are tested in AccountProtocol tests
 
-#[test, expected_failure(abort_code = issuer::EWrongAccount)]
+#[test, expected_failure(abort_code = intents::EWrongAccount)]
 fun test_error_do_update_from_wrong_account() {
     let (mut scenario, extensions, mut account, clock) = start();
     let auth = account.new_auth(version::current(), DummyIntent());
     vault::open(auth, &mut account, b"Degen".to_string(), scenario.ctx());
     let key = b"dummy".to_string();
 
-    let mut account2 = account::new(&extensions, Config {}, false, vector[b"AccountProtocol".to_string()], vector[@account_protocol], vector[1], scenario.ctx());
-    account2.deps_mut_for_testing().add_for_testing(&extensions, b"AccountActions".to_string(), @account_actions, 1);
+    let deps = deps::new_latest_extensions(&extensions, vector[b"AccountProtocol".to_string(), b"AccountActions".to_string()]);
+    let mut account2 = account::new(Config {}, deps, version::current(), DummyIntent(), scenario.ctx());
     // intent is submitted to other account
-    let mut intent = create_dummy_intent(&mut scenario, &mut account2);
-    vault::new_spend<Config, Outcome, SUI, DummyIntent>(
+    let mut intent = create_dummy_intent(&mut scenario, &account2, &clock);
+    vault::new_spend<_, SUI, _>(
         &mut intent, 
-        &account2,
         b"Degen".to_string(),
         2,
-        version::current(),
         DummyIntent(),
     );
-    account2.add_intent(intent, version::current(), DummyIntent());
+    account2.insert_intent(intent, version::current(), DummyIntent());
 
-    let (mut executable, _) = account2.execute_intent<_, Outcome, _>(key, &clock, version::current(), DummyIntent());
+    let (_, mut executable) = account2.create_executable(key, &clock, version::current(), DummyIntent());
     // try to burn from the right account that didn't approve the intent
-    let coin = vault::do_spend<Config, Outcome, SUI, DummyIntent>(
+    let coin = vault::do_spend<_, Outcome, SUI, _>(
         &mut executable, 
         &mut account, 
         version::current(), 
@@ -478,64 +434,29 @@ fun test_error_do_update_from_wrong_account() {
     end(scenario, extensions, account, clock);
 }
 
-#[test, expected_failure(abort_code = issuer::EWrongWitness)]
+#[test, expected_failure(abort_code = intents::EWrongWitness)]
 fun test_error_do_update_from_wrong_constructor_witness() {
     let (mut scenario, extensions, mut account, clock) = start();
     let auth = account.new_auth(version::current(), DummyIntent());
     vault::open(auth, &mut account, b"Degen".to_string(), scenario.ctx());
     let key = b"dummy".to_string();
 
-    let mut intent = create_dummy_intent(&mut scenario, &mut account);
-    vault::new_spend<Config, Outcome, SUI, DummyIntent>(
+    let mut intent = create_dummy_intent(&mut scenario, &account, &clock);
+    vault::new_spend<_, SUI, _>(
         &mut intent, 
-        &account,
         b"Degen".to_string(),
         2,
-        version::current(),
         DummyIntent(),
     );
-    account.add_intent(intent, version::current(), DummyIntent());
+    account.insert_intent(intent, version::current(), DummyIntent());
 
-    let (mut executable, _) = account.execute_intent<_, Outcome, _>(key, &clock, version::current(), DummyIntent());
+    let (_, mut executable) = account.create_executable(key, &clock, version::current(), DummyIntent());
     // try to mint with the wrong witness that didn't approve the intent
-    let coin = vault::do_spend<Config, Outcome, SUI, WrongWitness>(
+    let coin = vault::do_spend<_, Outcome, SUI, _>(
         &mut executable, 
         &mut account, 
         version::current(), 
         WrongWitness(),
-        scenario.ctx()
-    );
-
-    destroy(coin);
-    destroy(executable);
-    end(scenario, extensions, account, clock);
-}
-
-#[test, expected_failure(abort_code = deps::ENotDep)]
-fun test_error_do_update_from_not_dep() {
-    let (mut scenario, extensions, mut account, clock) = start();
-    let auth = account.new_auth(version::current(), DummyIntent());
-    vault::open(auth, &mut account, b"Degen".to_string(), scenario.ctx());
-    let key = b"dummy".to_string();
-
-    let mut intent = create_dummy_intent(&mut scenario, &mut account);
-    vault::new_spend<Config, Outcome, SUI, DummyIntent>(
-        &mut intent, 
-        &account,
-        b"Degen".to_string(),
-        2,
-        version::current(),
-        DummyIntent(),
-    );
-    account.add_intent(intent, version::current(), DummyIntent());
-
-    let (mut executable, _) = account.execute_intent<_, Outcome, _>(key, &clock, version::current(), DummyIntent());
-    // try to mint with the wrong version TypeName that didn't approve the intent
-    let coin = vault::do_spend<Config, Outcome, SUI, DummyIntent>(
-        &mut executable, 
-        &mut account, 
-        version_witness::new_for_testing(@0xFA153), 
-        DummyIntent(),
         scenario.ctx()
     );
 
