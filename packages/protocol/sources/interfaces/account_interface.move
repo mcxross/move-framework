@@ -78,7 +78,7 @@ public macro fun create_account<$Config, $CW: drop>(
 /// ```
 
 /// Returns an Auth if the conditions passed are met (used to create intents and more).
-public macro fun authenticate<$Config, $CW: drop>(
+public macro fun create_auth<$Config, $CW: drop>(
     $account: &Account<$Config>,
     $version_witness: VersionWitness,
     $config_witness: $CW,
