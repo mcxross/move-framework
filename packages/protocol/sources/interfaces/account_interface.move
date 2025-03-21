@@ -124,12 +124,12 @@ public macro fun resolve_intent<$Config, $Outcome, $CW: drop>(
 ) {
     let account = $account;
 
-    let outcome = account
+    let outcome_mut = account
         .intents_mut($version_witness, $config_witness)
         .get_mut($key)
         .outcome_mut<$Outcome>();
 
-    $modify_outcome(&mut outcome);
+    $modify_outcome(outcome_mut);
 }
 
 /// Example implementation:
@@ -144,7 +144,7 @@ public macro fun resolve_intent<$Config, $Outcome, $CW: drop>(
 ///     key: String, 
 ///     clock: &Clock,
 /// ): Executable<Outcome> {
-///     execute_intent!(account, key, clock, version::current(), Witness())
+///     execute_intent!<_, Outcome, _>(account, key, clock, version::current(), Witness())
 /// }
 /// 
 /// fun validate_outcome(
@@ -167,13 +167,13 @@ public macro fun execute_intent<$Config, $Outcome, $CW: drop>(
     $version_witness: VersionWitness,
     $config_witness: $CW,
 ): Executable<$Outcome> {
-    let account = $account;
-    let config = account.config();
+    let (outcome, executable) = account::create_executable<_, $Outcome, _>(
+        $account, $key, $clock, $version_witness, $config_witness
+    );
 
-    let (outcome, executable) = 
-        account.create_executable($key, $clock, $version_witness, $config_witness);
-
-    outcome.validate_outcome(config, executable.intent().role());
+    outcome.validate_outcome(
+        account::config($account), executable.intent().role()
+    );
 
     executable
 }

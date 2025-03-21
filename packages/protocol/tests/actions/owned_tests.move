@@ -74,7 +74,7 @@ fun send_coin(addr: address, amount: u64, scenario: &mut Scenario): ID {
 
 fun create_dummy_intent(
     scenario: &mut Scenario,
-    account: &mut Account<Config>, 
+    account: &Account<Config>, 
     clock: &Clock,
 ): Intent<Outcome> {
         let params = intents::new_params(
@@ -112,7 +112,7 @@ fun test_withdraw_flow() {
 
     let id = send_coin(account.addr(), 5, &mut scenario);
 
-    let mut intent = create_dummy_intent(&mut scenario, &mut account, &clock);
+    let mut intent = create_dummy_intent(&mut scenario, &account, &clock);
     owned::new_withdraw(&mut intent, &mut account, id, DummyIntent());
     account.insert_intent(intent, version::current(), DummyIntent());
 
@@ -138,7 +138,7 @@ fun test_withdraw_expired() {
 
     let id = send_coin(account.addr(), 5, &mut scenario);
 
-    let mut intent = create_dummy_intent(&mut scenario, &mut account, &clock);
+    let mut intent = create_dummy_intent(&mut scenario, &account, &clock);
     owned::new_withdraw(&mut intent, &mut account, id, DummyIntent());
     account.insert_intent(intent, version::current(), DummyIntent());
     
@@ -227,7 +227,7 @@ fun test_error_do_withdraw_from_wrong_account() {
     let id = send_coin(account.addr(), 5, &mut scenario);
 
     // intent is submitted to other account
-    let mut intent = create_dummy_intent(&mut scenario, &mut account2, &clock);
+    let mut intent = create_dummy_intent(&mut scenario, &account2, &clock);
     owned::new_withdraw(&mut intent, &mut account, id, DummyIntent());
     account2.insert_intent(intent, version::current(), DummyIntent());
 
@@ -253,7 +253,7 @@ fun test_error_do_withdraw_from_wrong_constructor_witness() {
 
     let id = send_coin(account.addr(), 5, &mut scenario);
 
-    let mut intent = create_dummy_intent(&mut scenario, &mut account, &clock);
+    let mut intent = create_dummy_intent(&mut scenario, &account, &clock);
     owned::new_withdraw(&mut intent, &mut account, id, DummyIntent());
     account.insert_intent(intent, version::current(), DummyIntent());
 
@@ -282,7 +282,7 @@ fun test_error_delete_withdraw_from_wrong_account() {
 
     let id = send_coin(account.addr(), 5, &mut scenario);
 
-    let mut intent = create_dummy_intent(&mut scenario, &mut account, &clock);
+    let mut intent = create_dummy_intent(&mut scenario, &account, &clock);
     owned::new_withdraw(&mut intent, &mut account, id, DummyIntent());
     account.insert_intent(intent, version::current(), DummyIntent());
     
