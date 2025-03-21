@@ -5,10 +5,18 @@
   },
   {
     "type": "AccountMultisig",
-    "id": "0x05d1c7b7b4381fb78b70ccb7f7c0786a383b74a3149b53661d5c759f968edf54"
+    "id": "0x5b249579964953a3f49ed605ff0329302c0c218e1603fbb9921e19bfacb901a8"
+  },
+  {
+    "type": "0x5b249579964953a3f49ed605ff0329302c0c218e1603fbb9921e19bfacb901a8::fees::Fees",
+    "id": "0x7f2fbf8b52a1324fbf36aceea947cd3c0a65d5ff56d409daa75a2339adf5a880"
+  },
+  {
+    "type": "0x5b249579964953a3f49ed605ff0329302c0c218e1603fbb9921e19bfacb901a8::fees::AdminCap",
+    "id": "0x9c6f8244f0df2c708f407a49eb33b056ba8b42febc71ee5f641f5ea774210194"
   },
   {
     "type": "0x2::package::UpgradeCap",
-    "id": "0xaab26daee32ef92412141952804a624598188dbd6742be0fecf1ae8048ddd0f3"
+    "id": "0xf6f0c973c28fe49ab840377d77ad1c725eae54da061f71875ba7f747d001d765"
   }
 ]

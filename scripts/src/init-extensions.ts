@@ -42,6 +42,17 @@ export async function initExtensions(): Promise<boolean> {
             ],
         });
 
+        tx.moveCall({
+            target: `${pkg}::extensions::add`,
+            arguments: [
+                tx.object(getId("extensions::Extensions")),
+                tx.object(getId("extensions::AdminCap")),
+                tx.pure.string("AccountPayment"),
+                tx.pure.address(getId("AccountPayment")),
+                tx.pure.u64(1),
+            ],
+        });
+
         const result = await client.signAndExecuteTransaction({
             signer: keypair,
             transaction: tx,

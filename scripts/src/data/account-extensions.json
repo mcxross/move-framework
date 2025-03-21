@@ -5,18 +5,18 @@
   },
   {
     "type": "0x2::package::UpgradeCap",
-    "id": "0x7d1430bda71b01ae38566b6023d7079ed294575ca09ebce03bc5af8d1cbc21e9"
+    "id": "0x316aba6677caf56187f1c1a0d2d3671b6af514f03f761941c56e8308347c3fb9"
   },
   {
-    "type": "0x94308db2bb8510fe049a2753e1f05ab46c94c8f1e5bd5f163d5173318a3a3d30::extensions::AdminCap",
-    "id": "0x87a4664603a5ed27d2f5305c326c4409f17110c044691853f96508f06d2a1342"
+    "type": "0x6e4d4fd65ffc3e7b09969bcfc34d4ec0b5bd640279f0027849884af404e9bc09::extensions::AdminCap",
+    "id": "0x469393020ad5da9dafb1b7ace419e6e5c23727b4375551aef73312f9c8cec57e"
+  },
+  {
+    "type": "0x6e4d4fd65ffc3e7b09969bcfc34d4ec0b5bd640279f0027849884af404e9bc09::extensions::Extensions",
+    "id": "0x519268651fbc7b3714db3ea0ec6c06ec707e6bb0788559852e1d61bd60c192d1"
   },
   {
     "type": "AccountExtensions",
-    "id": "0x94308db2bb8510fe049a2753e1f05ab46c94c8f1e5bd5f163d5173318a3a3d30"
-  },
-  {
-    "type": "0x94308db2bb8510fe049a2753e1f05ab46c94c8f1e5bd5f163d5173318a3a3d30::extensions::Extensions",
-    "id": "0xf4b314447da092b619a8cde4ef13bc40e5ecd0fd30622aab08782301b541e871"
+    "id": "0x6e4d4fd65ffc3e7b09969bcfc34d4ec0b5bd640279f0027849884af404e9bc09"
   }
 ]
