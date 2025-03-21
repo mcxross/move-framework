@@ -135,6 +135,7 @@ public macro fun resolve_intent<$Config, $Outcome, $CW: drop>(
 /// Example implementation:
 /// 
 /// IMPORTANT: You must provide an Outcome.validate() function that will be called automatically.
+/// It must take the outcome by value, a reference to the Config and the role of the intent even if not used.
 /// 
 /// ```move
 /// 
@@ -146,7 +147,7 @@ public macro fun resolve_intent<$Config, $Outcome, $CW: drop>(
 ///     execute_intent!(account, key, clock, version::current(), Witness())
 /// }
 /// 
-/// fun validate(
+/// fun validate_outcome(
 ///     outcome: Outcome, 
 ///     config: &Config,
 ///     role: String,
@@ -167,11 +168,12 @@ public macro fun execute_intent<$Config, $Outcome, $CW: drop>(
     $config_witness: $CW,
 ): Executable<$Outcome> {
     let account = $account;
+    let config = account.config();
 
     let (outcome, executable) = 
         account.create_executable($key, $clock, $version_witness, $config_witness);
 
-    outcome.validate();
+    outcome.validate_outcome(config, executable.intent().role());
 
     executable
 }
