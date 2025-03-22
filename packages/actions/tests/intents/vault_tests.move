@@ -90,7 +90,8 @@ fun test_request_execute_transfer() {
         b"".to_string(), 
         vector[0],
         1, 
-        &clock
+        &clock,
+        scenario.ctx()
     );
     vault_intents::request_spend_and_transfer<_, Outcome, SUI>(
         auth, 
@@ -149,7 +150,8 @@ fun test_request_execute_vesting() {
         b"".to_string(), 
         vector[0],
         1, 
-        &clock
+        &clock,
+        scenario.ctx()
     );
     vault_intents::request_spend_and_vest<Config, Outcome, SUI>(
         auth, 
@@ -207,7 +209,8 @@ fun test_error_request_transfer_not_same_length() {
         b"".to_string(), 
         vector[0],
         1, 
-        &clock
+        &clock,
+        scenario.ctx()
     );
     vault_intents::request_spend_and_transfer<Config, Outcome, SUI>(
         auth, 
@@ -245,7 +248,8 @@ fun test_error_request_transfer_coin_type_doesnt_exist() {
         b"".to_string(), 
         vector[0],
         1, 
-        &clock
+        &clock,
+        scenario.ctx()
     );
     vault_intents::request_spend_and_transfer<Config, Outcome, SUI>(
         auth, 
@@ -283,7 +287,8 @@ fun test_error_request_transfer_insufficient_funds() {
         b"".to_string(), 
         vector[0],
         1, 
-        &clock
+        &clock,
+        scenario.ctx()
     );
     vault_intents::request_spend_and_transfer<Config, Outcome, SUI>(
         auth, 
@@ -321,7 +326,8 @@ fun test_error_request_vesting_coin_type_doesnt_exist() {
         b"".to_string(), 
         vector[0],
         1, 
-        &clock
+        &clock,
+        scenario.ctx()
     );
     vault_intents::request_spend_and_vest<Config, Outcome, SUI>(
         auth, 
@@ -361,7 +367,8 @@ fun test_error_request_vesting_insufficient_funds() {
         b"".to_string(), 
         vector[0],
         1, 
-        &clock
+        &clock,
+        scenario.ctx()
     );
     vault_intents::request_spend_and_vest<Config, Outcome, SUI>(
         auth, 

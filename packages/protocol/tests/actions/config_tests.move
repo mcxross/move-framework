@@ -92,6 +92,7 @@ fun test_request_execute_config_deps() {
         vector[0],
         1, 
         &clock,
+        scenario.ctx()
     );
     config::request_config_deps(
         auth, 
@@ -134,6 +135,7 @@ fun test_config_deps_expired() {
         vector[0],
         1, 
         &clock,
+        scenario.ctx()
     );
     config::request_config_deps(
         auth, 
@@ -166,6 +168,7 @@ fun test_request_execute_toggle_unverified_allowed() {
         vector[0],
         1, 
         &clock,
+        scenario.ctx()
     );
     config::request_toggle_unverified_allowed(
         auth, 
@@ -201,6 +204,7 @@ fun test_toggle_unverified_allowed_expired() {
         vector[0],
         1, 
         &clock,
+        scenario.ctx()
     );  
     config::request_toggle_unverified_allowed(
         auth, 

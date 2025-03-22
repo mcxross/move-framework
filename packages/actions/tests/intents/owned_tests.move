@@ -88,7 +88,7 @@ fun test_request_execute_transfer_to_vault() {
     let auth = account.new_auth(version::current(), Witness());
     let outcome = Outcome {};
     let params = intents::new_params(   
-        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock
+        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock, scenario.ctx()
     );
     owned_intents::request_withdraw_and_transfer_to_vault<Config, Outcome, SUI>(
         auth, 
@@ -128,7 +128,7 @@ fun test_request_execute_transfer() {
     let auth = account.new_auth(version::current(), Witness());
     let outcome = Outcome {};
     let params = intents::new_params(
-        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock
+        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock, scenario.ctx()
     );
     owned_intents::request_withdraw_and_transfer<Config, Outcome>(
         auth, 
@@ -174,7 +174,7 @@ fun test_request_execute_vesting() {
     let auth = account.new_auth(version::current(), Witness());
     let outcome = Outcome {};
     let params = intents::new_params(
-        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock
+        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock, scenario.ctx()
     );
     owned_intents::request_withdraw_and_vest<Config, Outcome>(
         auth, 
@@ -216,7 +216,7 @@ fun test_error_request_transfer_not_same_length() {
     let auth = account.new_auth(version::current(), Witness());
     let outcome = Outcome {};
     let params = intents::new_params(
-        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock
+        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock, scenario.ctx()
     );
     owned_intents::request_withdraw_and_transfer<Config, Outcome>(
         auth, 

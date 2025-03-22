@@ -50,6 +50,7 @@ fun test_getters() {
         vector[0],
         1,
         &clock,
+        scenario.ctx()
     ).new_intent(
         true,
         b"Degen".to_string(),
@@ -65,6 +66,7 @@ fun test_getters() {
         vector[0],
         1,
         &clock,
+        scenario.ctx()
     ).new_intent(
         true,
         b"Degen".to_string(),
@@ -126,6 +128,7 @@ fun test_add_remove_action() {
         vector[0],
         1,
         &clock,
+        scenario.ctx()
     ).new_intent(
         true,
         b"Degen".to_string(),
@@ -158,6 +161,7 @@ fun test_pop_front_execution_time() {
         vector[0],
         1,
         &clock,
+        scenario.ctx()
     ).new_intent(
         true,
         b"Degen".to_string(),
@@ -202,6 +206,7 @@ fun test_add_destroy_intent() {
         vector[0],
         1,
         &clock,
+        scenario.ctx()
     ).new_intent(
         true,
         b"Degen".to_string(),
@@ -258,6 +263,7 @@ fun test_error_not_account() {
         vector[0],
         1,
         &clock,
+        scenario.ctx()
     ).new_intent(
         true,
         b"Degen".to_string(),
@@ -286,6 +292,7 @@ fun test_error_wrong_witness() {
         vector[0],
         1,
         &clock,
+        scenario.ctx()
     ).new_intent(
         true,
         b"Degen".to_string(),
@@ -314,6 +321,7 @@ fun test_error_delete_intent_actions_not_empty() {
         vector[0],
         1,
         &clock,
+        scenario.ctx()
     ).new_intent(
         true,
         b"Degen".to_string(),
@@ -344,6 +352,7 @@ fun test_error_add_intent_key_already_exists() {
         vector[0],
         1,
         &clock,
+        scenario.ctx()
     ).new_intent(
         true,
         b"Degen".to_string(),
@@ -358,6 +367,7 @@ fun test_error_add_intent_key_already_exists() {
         vector[0],
         1,
         &clock,
+        scenario.ctx()
     ).new_intent(
         true,
         b"Degen".to_string(),
@@ -377,15 +387,17 @@ fun test_error_no_execution_time() {
     let mut scenario = ts::begin(OWNER);
     let clock = clock::create_for_testing(scenario.ctx());
 
-    let _params = intents::new_params(
+    let params = intents::new_params(
         b"one".to_string(),
         b"".to_string(),
         vector[],
         1,
         &clock,
+        scenario.ctx()
     );
 
     destroy(clock);
+    destroy(params);
     scenario.end();
 }
 
@@ -394,15 +406,17 @@ fun test_error_execution_times_not_ascending() {
     let mut scenario = ts::begin(OWNER);
     let clock = clock::create_for_testing(scenario.ctx());
 
-    let _params = intents::new_params(
+    let params = intents::new_params(
         b"one".to_string(),
         b"".to_string(),
         vector[1, 0],
         1,
         &clock,
+        scenario.ctx()
     );
 
     destroy(clock);
+    destroy(params);
     scenario.end();
 }
 

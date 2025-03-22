@@ -79,6 +79,7 @@ fun create_dummy_intent(
         vector[0],
         1, 
         clock,
+        scenario.ctx()
     );
     account.create_intent(
         params,

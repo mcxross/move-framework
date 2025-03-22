@@ -70,7 +70,7 @@ fun create_dummy_intent(
     clock: &Clock,
 ): Intent<Outcome> {
     let params = intents::new_params(
-        b"dummy".to_string(), b"".to_string(), vector[0], 1, clock
+        b"dummy".to_string(), b"".to_string(), vector[0], 1, clock, scenario.ctx()
     );
     account.create_intent(
         params,

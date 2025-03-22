@@ -92,7 +92,7 @@ fun test_request_execute_disable_rules() {
     let auth = account.new_auth(version::current(), DummyIntent());
     let outcome = Outcome {};
     let params = intents::new_params(
-        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock
+        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock, scenario.ctx()
     );
     currency_intents::request_disable_rules<Config, Outcome, CURRENCY_INTENTS_TESTS>(
         auth, 
@@ -139,7 +139,7 @@ fun test_request_execute_mint_and_keep() {
     let auth = account.new_auth(version::current(), DummyIntent());
     let outcome = Outcome {};
     let params = intents::new_params(
-        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock
+        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock, scenario.ctx()
     );
     currency_intents::request_mint_and_transfer<Config, Outcome, CURRENCY_INTENTS_TESTS>(
         auth, 
@@ -181,7 +181,7 @@ fun test_request_execute_mint_and_keep_with_max_supply() {
     let auth = account.new_auth(version::current(), DummyIntent());
     let outcome = Outcome {};
     let params = intents::new_params(
-        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock
+        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock, scenario.ctx()
     );
     currency_intents::request_mint_and_transfer<Config, Outcome, CURRENCY_INTENTS_TESTS>(
         auth, 
@@ -224,7 +224,7 @@ fun test_request_execute_withdraw_and_burn() {
     let auth = account.new_auth(version::current(), DummyIntent());
     let outcome = Outcome {};
     let params = intents::new_params(
-        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock
+        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock, scenario.ctx()
     );
     currency_intents::request_withdraw_and_burn<Config, Outcome, CURRENCY_INTENTS_TESTS>(
         auth, 
@@ -264,7 +264,7 @@ fun test_request_execute_update_metadata() {
     let auth = account.new_auth(version::current(), DummyIntent());
     let outcome = Outcome {};
     let params = intents::new_params(
-        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock
+        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock, scenario.ctx()
     );
     currency_intents::request_update_metadata<Config, Outcome, CURRENCY_INTENTS_TESTS>(
         auth, 
@@ -304,7 +304,7 @@ fun test_request_execute_mint_and_transfer() {
     let auth = account.new_auth(version::current(), DummyIntent());
     let outcome = Outcome {};
     let params = intents::new_params(
-        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock
+        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock, scenario.ctx()
     );
     currency_intents::request_mint_and_transfer<Config, Outcome, CURRENCY_INTENTS_TESTS>(
         auth, 
@@ -356,7 +356,7 @@ fun test_request_execute_mint_and_vest() {
     let auth = account.new_auth(version::current(), DummyIntent());
     let outcome = Outcome {};
     let params = intents::new_params(
-        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock
+        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock, scenario.ctx()
     );
     currency_intents::request_mint_and_vest<Config, Outcome, CURRENCY_INTENTS_TESTS>(
         auth, 
@@ -400,7 +400,7 @@ fun test_error_request_mint_and_transfer_not_same_length() {
     let auth = account.new_auth(version::current(), DummyIntent());
     let outcome = Outcome {};
     let params = intents::new_params(
-        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock
+        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock, scenario.ctx()
     );
     currency_intents::request_mint_and_transfer<Config, Outcome, CURRENCY_INTENTS_TESTS>(
         auth, 
@@ -424,7 +424,7 @@ fun test_error_request_mint_and_transfer_mint_too_many() {
     let auth = account.new_auth(version::current(), DummyIntent());
     let outcome = Outcome {};
     let params = intents::new_params(
-        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock
+        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock, scenario.ctx()
     );
     currency_intents::request_mint_and_transfer<Config, Outcome, CURRENCY_INTENTS_TESTS>(
         auth, 
@@ -449,7 +449,7 @@ fun test_error_new_update_symbol_disabled() {
 
     let auth = account.new_auth(version::current(), DummyIntent());
     let params = intents::new_params(
-        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock
+        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock, scenario.ctx()
     );
     currency_intents::request_update_metadata<Config, Outcome, CURRENCY_INTENTS_TESTS>(
         auth, 
@@ -475,7 +475,7 @@ fun test_error_new_update_name_disabled() {
 
     let auth = account.new_auth(version::current(), DummyIntent());
     let params = intents::new_params(
-        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock
+        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock, scenario.ctx()
     );
     currency_intents::request_update_metadata<Config, Outcome, CURRENCY_INTENTS_TESTS>(
         auth, 
@@ -501,7 +501,7 @@ fun test_error_new_update_description_disabled() {
 
     let auth = account.new_auth(version::current(), DummyIntent());
     let params = intents::new_params(
-        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock
+        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock, scenario.ctx()
     );
     currency_intents::request_update_metadata<Config, Outcome, CURRENCY_INTENTS_TESTS>(
         auth, 
@@ -527,7 +527,7 @@ fun test_error_new_update_icon_disabled() {
 
     let auth = account.new_auth(version::current(), DummyIntent());
     let params = intents::new_params(
-        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock
+        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock, scenario.ctx()
     );
     currency_intents::request_update_metadata<Config, Outcome, CURRENCY_INTENTS_TESTS>(
         auth, 
@@ -554,7 +554,7 @@ fun test_error_new_burn_disabled() {
 
     let auth = account.new_auth(version::current(), DummyIntent());
     let params = intents::new_params(   
-        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock
+        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock, scenario.ctx()
     );
     currency_intents::request_withdraw_and_burn<Config, Outcome, CURRENCY_INTENTS_TESTS>(
         auth, 
@@ -579,7 +579,7 @@ fun test_error_new_mint_disabled() {
 
     let auth = account.new_auth(version::current(), DummyIntent());
     let params = intents::new_params(
-        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock
+        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock, scenario.ctx()
     );
     currency_intents::request_mint_and_transfer<Config, Outcome, CURRENCY_INTENTS_TESTS>(
         auth, 
@@ -602,7 +602,7 @@ fun test_error_new_mint_too_many() {
 
     let auth = account.new_auth(version::current(), DummyIntent());
     let params = intents::new_params(
-        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock
+        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock, scenario.ctx()
     );
     currency_intents::request_mint_and_transfer<Config, Outcome, CURRENCY_INTENTS_TESTS>(
         auth, 

@@ -13,9 +13,16 @@ use std::{
 };
 use sui::{
     bag::{Self, Bag},
+    dynamic_field,
     vec_set::{Self, VecSet},
     clock::Clock,
 };
+
+// === Aliases ===
+
+use fun dynamic_field::add as UID.df_add;
+use fun dynamic_field::borrow as UID.df_borrow;
+use fun dynamic_field::remove as UID.df_remove;
 
 // === Errors ===
 
@@ -80,7 +87,11 @@ public struct Expired {
 }
 
 /// Params of an intent to reduce boilerplate.
-public struct Params has copy, drop, store {
+public struct Params has key, store {
+    id: UID,
+}
+/// Fields are a df so it intents can be improved in the future
+public struct ParamsFieldsV1 has copy, drop, store {
     key: String,
     description: String,
     creation_time: u64,
@@ -96,6 +107,7 @@ public fun new_params(
     execution_times: vector<u64>,
     expiration_time: u64,
     clock: &Clock,
+    ctx: &mut TxContext,
 ): Params {
     assert!(!execution_times.is_empty(), ENoExecutionTime);
     let mut i = 0;
@@ -104,8 +116,17 @@ public fun new_params(
         i = i + 1;
     };
     
-    let creation_time = clock.timestamp_ms();
-    Params { key, description, creation_time, execution_times, expiration_time }
+    let fields = ParamsFieldsV1 { 
+        key, 
+        description, 
+        creation_time: clock.timestamp_ms(), 
+        execution_times, 
+        expiration_time 
+    };
+    let mut id = object::new(ctx);
+    id.df_add(true, fields);
+
+    Params { id }
 }
 
 public fun add_action<Outcome, Action: store, IW: drop>(
@@ -138,28 +159,28 @@ public fun destroy_empty_expired(expired: Expired) {
 // === View functions ===
 
 public use fun params_key as Params.key;
-public fun params_key(params: Params): String {
-    params.key
+public fun params_key(params: &Params): String {
+    params.id.df_borrow<_, ParamsFieldsV1>(true).key
 }
 
 public use fun params_description as Params.description;
-public fun params_description(params: Params): String {
-    params.description
+public fun params_description(params: &Params): String {
+    params.id.df_borrow<_, ParamsFieldsV1>(true).description
 }
 
 public use fun params_creation_time as Params.creation_time;
-public fun params_creation_time(params: Params): u64 {
-    params.creation_time
+public fun params_creation_time(params: &Params): u64 {
+    params.id.df_borrow<_, ParamsFieldsV1>(true).creation_time
 }
 
 public use fun params_execution_times as Params.execution_times;
-public fun params_execution_times(params: Params): vector<u64> {
-    params.execution_times
+public fun params_execution_times(params: &Params): vector<u64> {
+    params.id.df_borrow<_, ParamsFieldsV1>(true).execution_times
 }
 
 public use fun params_expiration_time as Params.expiration_time;
-public fun params_expiration_time(params: Params): u64 {
-    params.expiration_time
+public fun params_expiration_time(params: &Params): u64 {
+    params.id.df_borrow<_, ParamsFieldsV1>(true).expiration_time
 }
 
 public fun length(intents: &Intents): u64 {
@@ -270,8 +291,11 @@ public fun assert_expired_is_account(expired: &Expired, account_addr: address) {
     assert!(expired.account == account_addr, EWrongAccount);
 }
 
-public fun assert_single_execution(params: Params) {
-    assert!(params.execution_times.length() == 1, ESingleExecution);
+public fun assert_single_execution(params: &Params) {
+    assert!(
+        params.id.df_borrow<_, ParamsFieldsV1>(true).execution_times.length() == 1, 
+        ESingleExecution
+    );
 }
 
 // === Package functions ===
@@ -290,13 +314,16 @@ public(package) fun new_intent<Outcome, IW: drop>(
     _intent_witness: IW,
     ctx: &mut TxContext
 ): Intent<Outcome> {
-    let Params { 
+    let Params { mut id } = params;
+    
+    let ParamsFieldsV1 { 
         key, 
         description, 
         creation_time, 
         execution_times, 
         expiration_time 
-    } = params;
+    } = id.df_remove(true);
+    id.delete();
 
     Intent<Outcome> { 
         type_: type_name::get<IW>(),

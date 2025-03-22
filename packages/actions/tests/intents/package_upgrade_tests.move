@@ -79,7 +79,8 @@ fun test_request_execute_upgrade() {
         b"".to_string(), 
         vector[1000],
         2000, 
-        &clock
+        &clock,
+        scenario.ctx()
     );
     package_upgrade_intents::request_upgrade_package(
         auth, 
@@ -122,7 +123,8 @@ fun test_request_execute_restrict_all() {
         b"".to_string(), 
         vector[0],
         2000, 
-        &clock
+        &clock,
+        scenario.ctx()
     );
     package_upgrade_intents::request_restrict_policy(
         auth, 
@@ -150,7 +152,8 @@ fun test_request_execute_restrict_all() {
         b"".to_string(), 
         vector[0],
         3000, 
-        &clock
+        &clock,
+        scenario.ctx()
     );
     package_upgrade_intents::request_restrict_policy(
         auth, 
@@ -178,7 +181,8 @@ fun test_request_execute_restrict_all() {
         b"".to_string(), 
         vector[0],
         4000, 
-        &clock
+        &clock,
+        scenario.ctx()  
     );
     package_upgrade_intents::request_restrict_policy(
         auth, 
@@ -217,7 +221,8 @@ fun test_error_new_restrict_not_restrictive() {
         b"".to_string(), 
         vector[0], 
         1000, 
-        &clock
+        &clock,
+        scenario.ctx()
     );
     package_upgrade_intents::request_restrict_policy(
         auth, 
@@ -245,7 +250,8 @@ fun test_error_new_restrict_invalid_policy() {
         b"".to_string(), 
         vector[0], 
         1000, 
-        &clock
+        &clock,
+        scenario.ctx()
     );
     package_upgrade_intents::request_restrict_policy(
         auth, 

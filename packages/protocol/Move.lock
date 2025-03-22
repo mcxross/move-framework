@@ -2,7 +2,7 @@
 
 [move]
 version = 3
-manifest_digest = "B1A908AB448B2C42B7361AFA0DA32FBC8256189A582D40A448E3321E938BDADF"
+manifest_digest = "B8D61C4FFFBEDA24E95CFF06C6835B09643062FA7EA832E4B27A834CD2E2A3C6"
 deps_digest = "3C4103934B1E040BB6B23F1D610B4EF9F2F1166A50A104EADCF77467C004C600"
 dependencies = [
   { id = "AccountExtensions", name = "AccountExtensions" },
@@ -30,7 +30,7 @@ dependencies = [
 ]
 
 [move.toolchain-version]
-compiler-version = "1.44.3"
+compiler-version = "1.45.1"
 edition = "2024.beta"
 flavor = "sui"
 

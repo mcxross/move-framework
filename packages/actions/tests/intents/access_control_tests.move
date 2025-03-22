@@ -81,7 +81,7 @@ fun test_request_execute_borrow_cap() {
     let auth = account.new_auth(version::current(), Witness());
     let outcome = Outcome {};
     let params = intents::new_params(
-        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock
+        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock, scenario.ctx()
     );
     access_control_intents::request_borrow_cap<Config, Outcome, Cap>(
         auth, 
@@ -115,7 +115,7 @@ fun test_error_request_borrow_cap_no_lock() {
     let auth = account.new_auth(version::current(), Witness());
     let outcome = Outcome {};
     let params = intents::new_params(
-        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock
+        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock, scenario.ctx()
     );
     access_control_intents::request_borrow_cap<Config, Outcome, Cap>(
         auth, 

@@ -135,7 +135,7 @@ fun test_request_execute_take() {
     let auth = account.new_auth(version::current(), Witness());
     let outcome = Outcome {};
     let params = intents::new_params(
-        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock
+        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock, scenario.ctx()
     );
     acc_kiosk_intents::request_take_nfts(
         auth, 
@@ -195,7 +195,7 @@ fun test_request_execute_list() {
     let auth = account.new_auth(version::current(), Witness());
     let outcome = Outcome {};
     let params = intents::new_params(
-        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock
+        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock, scenario.ctx()
     );
     acc_kiosk_intents::request_list_nfts(
         auth, 
@@ -232,7 +232,7 @@ fun test_error_request_take_from_kiosk_doesnt_exist() {
     let auth = account.new_auth(version::current(), Witness());
     let outcome = Outcome {};
     let params = intents::new_params(
-        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock
+        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock, scenario.ctx()
     );
     acc_kiosk_intents::request_take_nfts(
         auth, 
@@ -255,7 +255,7 @@ fun test_error_request_list_from_kiosk_doesnt_exist() {
     let auth = account.new_auth(version::current(), Witness());
     let outcome = Outcome {};
     let params = intents::new_params(
-        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock
+        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock, scenario.ctx()
     );
     acc_kiosk_intents::request_list_nfts(
         auth, 
@@ -279,7 +279,7 @@ fun test_error_request_list_nfts_prices_not_same_length() {
     let auth = account.new_auth(version::current(), Witness());
     let outcome = Outcome {};
     let params = intents::new_params(
-        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock
+        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock, scenario.ctx()
     );
     acc_kiosk_intents::request_list_nfts(
         auth, 

@@ -38,6 +38,7 @@ fun test_executable_flow() {
         vector[1],
         1,
         &clock,
+        scenario.ctx()
     );
 
     let mut intent = intents::new_intent(

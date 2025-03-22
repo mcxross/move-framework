@@ -130,7 +130,7 @@ fun create_dummy_intent(
     clock: &Clock,
 ): Intent<Outcome> {
     let params = intents::new_params(
-        b"dummy".to_string(), b"".to_string(), vector[0], 1, clock
+        b"dummy".to_string(), b"".to_string(), vector[0], 1, clock, scenario.ctx()
     );
     account.create_intent(
         params,
@@ -230,7 +230,7 @@ fun test_delist_nfts() {
     // list nfts
     let auth = account.new_auth(version::current(), DummyIntent());
     let params = intents::new_params(
-        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock
+        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock, scenario.ctx()
     );
     acc_kiosk_intents::request_list_nfts(
         auth, 
@@ -268,7 +268,7 @@ fun test_withdraw_profits() {
     // list nfts
     let auth = account.new_auth(version::current(), DummyIntent());
     let params = intents::new_params(
-        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock
+        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock, scenario.ctx()
     );
     acc_kiosk_intents::request_list_nfts(
         auth, 

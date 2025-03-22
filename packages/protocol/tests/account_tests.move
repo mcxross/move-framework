@@ -116,6 +116,7 @@ fun test_intent_create_execute_flow() {
         vector[0],
         1, 
         &clock,
+        scenario.ctx()
     );
     let intent = account.create_intent(
         params,
@@ -151,6 +152,7 @@ fun test_anyone_can_execute_intent() {
         vector[0],
         1, 
         &clock,
+        scenario.ctx()
     );
     let intent = account.create_intent(
         params,
@@ -183,6 +185,7 @@ fun test_intent_delete_flow() {
         vector[0],
         1, 
         &clock,
+        scenario.ctx()
     );
     let intent = account.create_intent(
         params,
@@ -295,6 +298,7 @@ fun test_error_cannot_create_intent_from_not_dependent_package() {
         vector[0],
         1, 
         &clock,
+        scenario.ctx()
     );
     let intent = account.create_intent(
         params,
@@ -321,6 +325,7 @@ fun test_error_cannot_insert_intent_from_not_dependent_package() {
         vector[0],
         1, 
         &clock,
+        scenario.ctx()
     );
     let intent = account.create_intent(
         params,
@@ -338,7 +343,7 @@ fun test_error_cannot_insert_intent_from_not_dependent_package() {
 
 #[test, expected_failure(abort_code = intents::EWrongAccount)]
 fun test_error_insert_intent_with_wrong_account() {
-    let (mut scenario, extensions, mut account) = start();
+    let (mut scenario, extensions, account) = start();
     let clock = clock::create_for_testing(scenario.ctx());
 
     let deps = deps::new_latest_extensions(&extensions, vector[b"AccountProtocol".to_string()]);
@@ -350,6 +355,7 @@ fun test_error_insert_intent_with_wrong_account() {
         vector[0],
         1, 
         &clock,
+        scenario.ctx()
     );
     let intent = account.create_intent(
         params,
@@ -378,6 +384,7 @@ fun test_error_insert_intent_with_wrong_witness() {
         vector[0],
         1, 
         &clock,
+        scenario.ctx()
     );
     let intent = account.create_intent(
         params,
@@ -407,6 +414,7 @@ fun test_error_cannot_confirm_execution_with_wrong_account() {
         vector[0],
         1, 
         &clock,
+        scenario.ctx()
     );
     let intent = account.create_intent(
         params,
@@ -437,6 +445,7 @@ fun test_error_cannot_confirm_execution_before_all_actions_executed() {
         vector[0],
         1, 
         &clock,
+        scenario.ctx()
     );
     let mut intent = account.create_intent(
         params,
@@ -468,6 +477,7 @@ fun test_error_cannot_destroy_intent_without_executing_the_action() {
         vector[0],
         1, 
         &clock,
+        scenario.ctx()
     );
     let intent = account.create_intent(
         params,
@@ -496,6 +506,7 @@ fun test_error_cannot_delete_intent_not_expired() {
         vector[0],
         1, 
         &clock,
+        scenario.ctx()
     );
     let intent = account.create_intent(
         params,
@@ -628,6 +639,7 @@ fun test_error_cannot_execute_intent_from_not_dependent_package() {
         vector[0],
         1, 
         &clock,
+        scenario.ctx()
     );
     let intent = account.create_intent(
         params,
@@ -656,6 +668,7 @@ fun test_error_cannot_execute_intent_not_called_from_config_module() {
         vector[0],
         1, 
         &clock,
+        scenario.ctx()
     );
     let intent = account.create_intent(
         params,
@@ -684,6 +697,7 @@ fun test_error_cannot_execute_intent_before_execution_time() {
         vector[1],
         1, 
         &clock,
+        scenario.ctx()
     );
     let intent = account.create_intent(
         params,
