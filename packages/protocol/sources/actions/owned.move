@@ -72,12 +72,13 @@ public fun delete_withdraw<Config>(expired: &mut Expired, account: &mut Account<
 /// Authorized addresses can merge and split coins.
 /// Returns the IDs to use in a following intent, conserves the order.
 public fun merge_and_split<Config, CoinType>(
-    _auth: &Auth, 
+    auth: Auth, 
     account: &mut Account<Config>, 
     to_merge: vector<Receiving<Coin<CoinType>>>, // there can be only one coin if we just want to split
     to_split: vector<u64>, // there can be no amount if we just want to merge
     ctx: &mut TxContext
 ): vector<ID> { 
+    account.verify(auth);
     // receive all coins
     let mut coins = vector::empty();
     to_merge.do!(|item| {

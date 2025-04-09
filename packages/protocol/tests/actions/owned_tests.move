@@ -161,7 +161,7 @@ fun test_merge_and_split_2_coins() {
     let receiving_to_split = ts::most_recent_receiving_ticket<Coin<SUI>>(&object::id(&account));
     let auth = account.new_auth(version::current(), Witness());
     let split_coin_ids = owned::merge_and_split<Config, SUI>(
-        &auth,
+        auth,
         &mut account,
         vector[receiving_to_split],
         vector[40, 30],
@@ -180,7 +180,6 @@ fun test_merge_and_split_2_coins() {
     assert!(split_coin0.value() == 40);
     assert!(split_coin1.value() == 30);
 
-    destroy(auth);
     destroy(split_coin0);
     destroy(split_coin1);
     end(scenario, extensions, account, clock);          
@@ -196,7 +195,7 @@ fun test_merge_2_coins_and_split() {
 
     let auth = account.new_auth(version::current(), Witness());
     let merge_coin_id = owned::merge_and_split<Config, SUI>(
-        &auth,
+        auth,
         &mut account,
         vector[ts::receiving_ticket_by_id(id1), ts::receiving_ticket_by_id(id2)],
         vector[100],
@@ -210,7 +209,6 @@ fun test_merge_2_coins_and_split() {
     );
     assert!(merge_coin.value() == 100);
 
-    destroy(auth);
     destroy(merge_coin);
     end(scenario, extensions, account, clock);          
 }  
