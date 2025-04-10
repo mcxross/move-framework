@@ -5,18 +5,18 @@
   },
   {
     "type": "0x2::package::UpgradeCap",
-    "id": "0x2d47e8e9dff0de2570ffcbdb60b6ef6cd2077ffe328f38ae6f1babbefb301370"
+    "id": "0x328156416a3f8de31cafbf00f02e972e405e85bc4dede0caf6e10a1969377f0a"
   },
   {
     "type": "AccountMultisig",
-    "id": "0x86d6c90d7c6aafa3dcde015b9651cbd5754c8299c3881a67a37ba6f5e09e277a"
+    "id": "0x3517260dd9243b66c77274d3f8c19a231e5c1543a398456318c7ab9f5892f347"
   },
   {
-    "type": "0x86d6c90d7c6aafa3dcde015b9651cbd5754c8299c3881a67a37ba6f5e09e277a::fees::Fees",
-    "id": "0xa396313ecac3bcf0e1849ee336a8ff74b43d7071427daba95f83d12bc72900fa"
+    "type": "0x3517260dd9243b66c77274d3f8c19a231e5c1543a398456318c7ab9f5892f347::fees::Fees",
+    "id": "0xcc05b9d145e54d33fe0d3875de6bd3ff0fa6920f0807ce5404c6b03c4d852d85"
   },
   {
-    "type": "0x86d6c90d7c6aafa3dcde015b9651cbd5754c8299c3881a67a37ba6f5e09e277a::fees::AdminCap",
-    "id": "0xbf8a5af7c05f4625ed6d2c430bca6781de9dfbb6d2a7ea0423dd29658a0fd14f"
+    "type": "0x3517260dd9243b66c77274d3f8c19a231e5c1543a398456318c7ab9f5892f347::fees::AdminCap",
+    "id": "0xf4f25d0af318a2bf7dcaf2e77a5e4eb16949316a694a308c1f85b12c249a14f1"
   }
 ]
