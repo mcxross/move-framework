@@ -19,7 +19,7 @@ use account_protocol::{
     account::{Account, Auth},
     intents::{Expired, Params},
     executable::Executable,
-    deps::{Self, Deps},
+    deps::{Self, Dep},
     metadata,
     version,
     intent_interface,
@@ -40,7 +40,7 @@ public struct ToggleUnverifiedAllowedIntent() has drop;
 
 /// Action struct wrapping the deps account field into an action
 public struct ConfigDepsAction has store {
-    deps: Deps,
+    deps: vector<Dep>,
 }
 /// Action struct wrapping the unverified_allowed account field into an action
 public struct ToggleUnverifiedAllowedAction has store {}
@@ -83,8 +83,8 @@ public fun update_extensions_to_latest<Config>(
         i = i + 1;
     };
 
-    *account.deps_mut(version::current()) = 
-        deps::new(extensions, account.deps().unverified_allowed(), new_names, new_addrs, new_versions);
+    *account.deps_mut(version::current()).inner_mut() = 
+        deps::new_inner(extensions, account.deps(), new_names, new_addrs, new_versions);
 }
 
 /// Creates an intent to update the dependencies of the account
@@ -101,8 +101,8 @@ public fun request_config_deps<Config, Outcome: store>(
 ) {
     account.verify(auth);
     params.assert_single_execution();
-
-    let deps = deps::new(extensions, false, names, addresses, versions);
+    
+    let deps = deps::new_inner(extensions, account.deps(), names, addresses, versions);
 
     account.build_intent!(
         params,
@@ -124,7 +124,10 @@ public fun execute_config_deps<Config, Outcome: store>(
         executable, 
         version::current(),   
         ConfigDepsIntent(), 
-        |executable, iw| *account.deps_mut(version::current()) = executable.next_action<_, ConfigDepsAction, _>(iw).deps
+        |executable, iw| {
+            let ConfigDepsAction { deps } = executable.next_action<_, ConfigDepsAction, _>(iw);
+            *account.deps_mut(version::current()).inner_mut() = *deps;
+        }
     ); 
 } 
 

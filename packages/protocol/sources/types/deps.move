@@ -21,6 +21,7 @@ const ENotDep: u64 = 2;
 const ENotExtension: u64 = 3;
 const EAccountProtocolMissing: u64 = 4;
 const EDepsNotSameLength: u64 = 5;
+const EAccountConfigMissing: u64 = 6;
 
 // === Structs ===
 
@@ -51,9 +52,12 @@ public fun new(
     addresses: vector<address>,
     mut versions: vector<u64>,
 ): Deps {
-    let (addr, version) = extensions.get_latest_for_name(names[0]);
-    assert!(extensions.is_extension(b"AccountProtocol".to_string(), addr, version), EAccountProtocolMissing);
     assert!(names.length() == addresses.length() && addresses.length() == versions.length(), EDepsNotSameLength);
+    assert!(
+        names[0] == b"AccountProtocol".to_string() &&
+        extensions.is_extension(names[0], addresses[0], versions[0]), 
+        EAccountProtocolMissing
+    );
 
     let mut inner = vector<Dep>[];
 
@@ -89,6 +93,47 @@ public fun new_latest_extensions(
     });
 
     Deps { inner, unverified_allowed: false }
+}
+
+public fun new_inner(
+    extensions: &Extensions,
+    deps: &Deps,
+    names: vector<String>,
+    addresses: vector<address>,
+    mut versions: vector<u64>,
+): vector<Dep> {
+    assert!(names.length() == addresses.length() && addresses.length() == versions.length(), EDepsNotSameLength);
+    // AccountProtocol is mandatory and cannot be removed
+    assert!(
+        names[0] == b"AccountProtocol".to_string() &&
+        extensions.is_extension(names[0], addresses[0], versions[0]), 
+        EAccountProtocolMissing
+    );
+    // AccountConfig is mandatory and cannot be removed
+    assert!(
+        names[1] == deps.get_by_idx(1).name &&
+        (!deps.unverified_allowed && extensions.is_extension(names[1], addresses[1], versions[1])),
+        EAccountConfigMissing
+    );
+
+    let mut inner = vector<Dep>[];
+    names.zip_do!(addresses, |name, addr| {
+        let version = versions.remove(0);
+        
+        assert!(!inner.any!(|dep| dep.name == name), EDepAlreadyExists);
+        assert!(!inner.any!(|dep| dep.addr == addr), EDepAlreadyExists);
+        if (!deps.unverified_allowed) 
+            assert!(extensions.is_extension(name, addr, version), ENotExtension);
+
+        inner.push_back(Dep { name, addr, version });
+    });
+
+    inner
+}
+
+/// Safe because deps_mut is only accessible in this package.
+public fun inner_mut(deps: &mut Deps): &mut vector<Dep> {
+    &mut deps.inner
 }
 
 // === View functions ===

@@ -407,8 +407,8 @@ public fun metadata<Config>(account: &Account<Config>): &Metadata {
 }
 
 /// Returns the dependencies of the account.
-public fun deps<Config>(account: &Account<Config>): Deps {
-    account.deps
+public fun deps<Config>(account: &Account<Config>): &Deps {
+    &account.deps
 }
 
 /// Returns the intents of the account.

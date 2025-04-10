@@ -42,11 +42,12 @@ fun start(): (Scenario, Extensions, Account<Config>, Clock) {
     // add core deps
     extensions.add(&cap, b"AccountProtocol".to_string(), @account_protocol, 1);
     extensions.add(&cap, b"AccountMultisig".to_string(), @0x1, 1);
+    extensions.update(&cap, b"AccountMultisig".to_string(), @0x11, 2);
     extensions.add(&cap, b"AccountActions".to_string(), @0x2, 1);
     // add external dep
     extensions.add(&cap, b"External".to_string(), @0xABC, 1);
 
-    let deps = deps::new_latest_extensions(&extensions, vector[b"AccountProtocol".to_string()]);
+    let deps = deps::new_latest_extensions(&extensions, vector[b"AccountProtocol".to_string(), b"AccountMultisig".to_string()]);
     let account = account::new(Config {}, deps, version::current(), Witness(), scenario.ctx());
     let clock = clock::create_for_testing(scenario.ctx());
     // create world
@@ -100,9 +101,9 @@ fun test_request_execute_config_deps() {
         params,
         Outcome {}, 
         &extensions,
-        vector[b"AccountProtocol".to_string(), b"External".to_string()], 
-        vector[@account_protocol, @0xABC], 
-        vector[1, 1], 
+        vector[b"AccountProtocol".to_string(), b"AccountMultisig".to_string(), b"External".to_string()], 
+        vector[@account_protocol, @0x11, @0xABC], 
+        vector[1, 2, 1], 
         scenario.ctx()
     );
     assert!(!account.deps().contains_name(b"External".to_string()));
@@ -143,9 +144,9 @@ fun test_config_deps_expired() {
         params,
         Outcome {}, 
         &extensions,
-        vector[b"AccountProtocol".to_string(), b"External".to_string()], 
-        vector[@account_protocol, @0xABC], 
-        vector[1, 1], 
+        vector[b"AccountProtocol".to_string(), b"AccountMultisig".to_string()], 
+        vector[@account_protocol, @0x11], 
+        vector[1, 2], 
         scenario.ctx()
     );
     
@@ -210,7 +211,7 @@ fun test_toggle_unverified_allowed_expired() {
         auth, 
         &mut account,
         params,
-        Outcome {}, 
+        Outcome {},
         scenario.ctx()
     );
     

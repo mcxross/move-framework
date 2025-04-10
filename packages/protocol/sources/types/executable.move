@@ -36,7 +36,7 @@ public fun contains_action<Outcome: store, Action: store>(
     let actions_length = executable.intent().actions().length();
     let mut contains = false;
     
-    actions_length.do!<u64>(|i| {
+    actions_length.do!(|i| {
         if (executable.intent.actions().contains_with_type<u64, Action>(i)) contains = true;
     });
 
