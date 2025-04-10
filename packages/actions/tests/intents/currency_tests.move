@@ -318,7 +318,7 @@ fun test_request_execute_mint_and_transfer() {
 
     let (_, mut executable) = account.create_executable<_, Outcome, _>(key, &clock, version::current(), DummyIntent());
     // loop over execute_mint_and_transfer to execute each action
-    3u64.do!<u64>(|_| {
+    3u64.do!(|_| {
         currency_intents::execute_mint_and_transfer<_, Outcome, CURRENCY_INTENTS_TESTS>(&mut executable, &mut account, scenario.ctx());
     });
     account.confirm_execution(executable);

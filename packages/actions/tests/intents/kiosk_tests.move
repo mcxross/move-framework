@@ -84,7 +84,7 @@ fun init_caller_kiosk_with_nfts(policy: &TransferPolicy<Nft>, amount: u64, scena
     let (mut kiosk, kiosk_cap) = kiosk::new(scenario.ctx());
     let mut ids = vector[];
 
-    amount.do!<u64>(|_| {
+    amount.do!(|_| {
         let nft = Nft { id: object::new(scenario.ctx()) };
         ids.push_back(object::id(&nft));
         kiosk.lock(&kiosk_cap, policy, nft);
@@ -102,7 +102,7 @@ fun init_account_kiosk_with_nfts(account: &mut Account<Config>, policy: &mut Tra
     let (mut kiosk, kiosk_cap, ids) = init_caller_kiosk_with_nfts(policy, amount, scenario);
     let mut nft_ids = ids;
 
-    amount.do!<u64>(|_| {
+    amount.do!(|_| {
         let auth = account.new_auth(version::current(), Witness());
         let request = acc_kiosk::place(
             auth, 
