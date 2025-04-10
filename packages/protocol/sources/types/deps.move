@@ -58,6 +58,8 @@ public fun new(
         extensions.is_extension(names[0], addresses[0], versions[0]), 
         EAccountProtocolMissing
     );
+    // second dependency must be AccountConfig (we don't know the name)
+    assert!(names[1] != b"AccountActions".to_string(), EAccountConfigMissing);
 
     let mut inner = vector<Dep>[];
 
