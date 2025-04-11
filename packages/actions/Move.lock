@@ -2,7 +2,7 @@
 
 [move]
 version = 3
-manifest_digest = "82F329A1B9654D6D6EA9019B8B93FD8AB4937BD8A3B4ED71A745B19EDD396582"
+manifest_digest = "872380AC03A3BA8750FDD2FC8449AE64A72C727A98D9CB3C74D6CCF41A2238A9"
 deps_digest = "F9B494B64F0615AED0E98FC12A85B85ECD2BC5185C22D30E7F67786BB52E507C"
 dependencies = [
   { id = "AccountExtensions", name = "AccountExtensions" },
@@ -52,6 +52,6 @@ dependencies = [
 
 [env.testnet]
 chain-id = "4c78adac"
-original-published-id = "0x2aa32bac57fe856112ab538bc4c4018fbea2df56e585b2120e502fbe37f18000"
-latest-published-id = "0x2aa32bac57fe856112ab538bc4c4018fbea2df56e585b2120e502fbe37f18000"
+original-published-id = "0x4023711e28cda446a13175512df391445b927db0aa058144cf9abe899cbfa5e2"
+latest-published-id = "0x4023711e28cda446a13175512df391445b927db0aa058144cf9abe899cbfa5e2"
 published-version = "1"
