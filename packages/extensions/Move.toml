@@ -1,7 +1,7 @@
 [package]
 name = "AccountExtensions"
 edition = "2024.beta"
-license = "MIT"
+license = "Apache-2.0"
 authors = [ "Thouny (thouny@tuta.io)" ]
 
 [dependencies.Sui]
