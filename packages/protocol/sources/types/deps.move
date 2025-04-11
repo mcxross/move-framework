@@ -114,7 +114,7 @@ public fun new_inner(
     // AccountConfig is mandatory and cannot be removed
     assert!(
         names[1] == deps.get_by_idx(1).name &&
-        (!deps.unverified_allowed && extensions.is_extension(names[1], addresses[1], versions[1])),
+        (deps.unverified_allowed || extensions.is_extension(names[1], addresses[1], versions[1])),
         EAccountConfigMissing
     );
 
