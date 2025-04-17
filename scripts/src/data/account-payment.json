@@ -4,19 +4,19 @@
     "id": "0x0038c5a7dc8a89df8449775982973fbd31fa0e3892e60b740dd8bcb3dc51c613"
   },
   {
-    "type": "0x841fd25185f32719f2003fe80a34e934b00fd06ae393a96c8043eeddb0c134d9::fees::Fees",
-    "id": "0x2e8b20f858844ec627d9c8d44ceaeaade1d3be2cc9a574b179bf52b1d306b843"
-  },
-  {
     "type": "0x2::package::UpgradeCap",
-    "id": "0x2f4c0401a9ab81cf632fabbce47f2d7556d6f8d04c12e1ff1093993b429036b2"
+    "id": "0x6779e20eee71ca99a9dc82672d183fbc728a4a086b79ce87eb306b2864d686df"
   },
   {
-    "type": "0x841fd25185f32719f2003fe80a34e934b00fd06ae393a96c8043eeddb0c134d9::fees::AdminCap",
-    "id": "0x725fe52aaa3f8f8e249a6c7c5b4c2ae42981366a60d24ba4e3594a686175c257"
+    "type": "0xda64705d13f669db03ff59f181477ba1bcee679bffddf73f402ae85f75094a9e::fees::Fees",
+    "id": "0x72a480d9bc22b372d2b3a0b374adb36e2319d70e7a36470533495adc28b38bd8"
+  },
+  {
+    "type": "0xda64705d13f669db03ff59f181477ba1bcee679bffddf73f402ae85f75094a9e::fees::AdminCap",
+    "id": "0x9df95bfc3320dd101ca30fe0026ef2550ad5e52e6e13e4807f0bbaf9f7bcbcf7"
   },
   {
     "type": "AccountPayment",
-    "id": "0x841fd25185f32719f2003fe80a34e934b00fd06ae393a96c8043eeddb0c134d9"
+    "id": "0xda64705d13f669db03ff59f181477ba1bcee679bffddf73f402ae85f75094a9e"
   }
 ]
