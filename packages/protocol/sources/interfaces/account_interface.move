@@ -82,11 +82,12 @@ public macro fun create_auth<$Config, $CW: drop>(
     $account: &Account<$Config>,
     $version_witness: VersionWitness,
     $config_witness: $CW,
-    $grant_permission: ||,
+    $grant_permission: ||, // condition to grant permission, must throw if not met
 ): Auth {
     let account = $account;
 
     $grant_permission();
+    
     account.new_auth($version_witness, $config_witness)
 }
 
@@ -166,14 +167,13 @@ public macro fun execute_intent<$Config, $Outcome, $CW: drop>(
     $clock: &Clock,
     $version_witness: VersionWitness,
     $config_witness: $CW,
+    $validate_outcome: |$Outcome|,
 ): Executable<$Outcome> {
     let (outcome, executable) = account::create_executable<_, $Outcome, _>(
         $account, $key, $clock, $version_witness, $config_witness
     );
 
-    outcome.validate_outcome(
-        account::config($account), executable.intent().role()
-    );
+    $validate_outcome(outcome);
 
     executable
 }
