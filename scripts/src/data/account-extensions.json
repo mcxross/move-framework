@@ -4,35 +4,19 @@
     "id": "0x0038c5a7dc8a89df8449775982973fbd31fa0e3892e60b740dd8bcb3dc51c613"
   },
   {
-    "type": "0x2::package::UpgradeCap",
-    "id": "0x597aacf5f66549542541b83375fa77249bd28e5a0d95fc026519d9aed040c0f5"
+    "type": "0x60bdbac4243b28773ca6d354fe5da75372552838d3fe766577bb48560600f27f::extensions::AdminCap",
+    "id": "0x120ec1de73689141dcf018f5cf2f941d93e6b198bec95b414a2372f7b32f53f9"
   },
   {
-    "type": "0xbcd8105d33da551047e81e523f6bc2646f5bb7ba2ba31cf5f06e9073ef0600ce::extensions::Extensions",
-    "id": "0x96efe860c18d4b4e82d4dc57db55f4552bf7a0b809d7130e689297fff77d7594"
+    "type": "0x60bdbac4243b28773ca6d354fe5da75372552838d3fe766577bb48560600f27f::extensions::Extensions",
+    "id": "0x3938c4df4911ce6cb10831e3f60298350e722cb047e43ece0c36b8fabb8eee91"
+  },
+  {
+    "type": "0x2::package::UpgradeCap",
+    "id": "0x3d88d1fd2b47ce213eb3b1202fe2a42491942bf7091c2c180f02e6e8a82b7641"
   },
   {
     "type": "AccountExtensions",
-    "id": "0xbcd8105d33da551047e81e523f6bc2646f5bb7ba2ba31cf5f06e9073ef0600ce"
-  },
-  {
-    "type": "0xbcd8105d33da551047e81e523f6bc2646f5bb7ba2ba31cf5f06e9073ef0600ce::extensions::AdminCap",
-    "id": "0xc92ffced3ec81b50d7733105a44d33289d034a1c26e1ab084a171b70cd29e845"
-  },
-  {
-    "type": "0x2::coin::Coin<0x2::sui::SUI>",
-    "id": "0x26bc19d124eabdb46b773fad37d3f5bb686cdde5f445c111c5e0b7a6a8e5cd33"
-  },
-  {
-    "type": "0x2::coin::Coin<0x2::sui::SUI>",
-    "id": "0x2f2cb648e987877838f8d74c5b4f2332c2d1d01035911d07bd656d5f35d9d78e"
-  },
-  {
-    "type": "0x2::coin::Coin<0x2::sui::SUI>",
-    "id": "0x5c47eff3ef8b794efd190c986e319018010562186b612cefdcc1b8dff02987a4"
-  },
-  {
-    "type": "0x2::coin::Coin<0x2::sui::SUI>",
-    "id": "0xd6e179eda7deeb336c88daa4d42a97018aef494ed59cee03f9ab5f0ae329c013"
+    "id": "0x60bdbac4243b28773ca6d354fe5da75372552838d3fe766577bb48560600f27f"
   }
 ]
