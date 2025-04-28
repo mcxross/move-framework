@@ -27,6 +27,9 @@ public struct DummyIntent() has drop;
 
 public struct DummyConfig has copy, drop, store {}
 
+public struct AccountConfig1 has copy, drop, store {}
+public struct AccountConfig2 has copy, drop, store {}
+
 // === Helpers ===
 
 fun start(): (Scenario, Registry, Extensions) {
@@ -56,6 +59,11 @@ fun end(scenario: Scenario, registry: Registry, extensions: Extensions) {
 fun create_account(extensions: &Extensions, ctx: &mut TxContext): Account<DummyConfig> {
     let deps = deps::new_latest_extensions(extensions, vector[b"AccountProtocol".to_string()]);
     account::new(DummyConfig {}, deps, version::current(), Witness(), ctx)
+}
+
+fun create_account_with_config<T: drop>(extensions: &Extensions, config: T, ctx: &mut TxContext): Account<T> {
+    let deps = deps::new_latest_extensions(extensions, vector[b"AccountProtocol".to_string()]);
+    account::new(config, deps, version::current(), Witness(), ctx)
 }
 
 // === Tests ===
@@ -96,6 +104,43 @@ fun test_user_flow() {
     destroy(account1);
     destroy(account2);
     destroy(account3);
+    end(scenario, registry, extensions);
+}
+
+#[test]
+fun test_user_add_multiple_accounts_of_different_types() {
+    let (mut scenario, registry, extensions) = start();
+
+    let mut user = user::new(scenario.ctx());
+    assert!(registry.users().length() == 0);
+    assert!(!registry.users().contains(OWNER));
+
+    let account1 = create_account(&extensions, scenario.ctx());
+    let account2 = create_account(&extensions, scenario.ctx());
+    let account3 = create_account_with_config(&extensions, AccountConfig1 {}, scenario.ctx());
+    let account4 = create_account_with_config(&extensions, AccountConfig2 {}, scenario.ctx());
+
+    user.add_account(&account1, Witness());
+    user.add_account(&account2, Witness());
+    user.add_account(&account3, Witness());
+    user.add_account(&account4, Witness());
+
+    assert!(user.all_ids() == vector[account4.addr(), account3. addr(), account1.addr(), account2.addr()]);
+    assert!(user.ids_for_type<DummyConfig>() == vector[account1.addr(), account2.addr()]);
+    assert!(user.ids_for_type<AccountConfig1>() == vector[account3.addr()]);
+    assert!(user.ids_for_type<AccountConfig2>() == vector[account4.addr()]);
+
+    user.remove_account(&account1, Witness());
+    user.remove_account(&account2, Witness());
+    user.remove_account(&account3, Witness());
+    user.remove_account(&account4, Witness());
+    assert!(user.all_ids() == vector[]);
+
+    destroy(account1);
+    destroy(account2);
+    destroy(account3);
+    destroy(account4);
+    destroy(user);
     end(scenario, registry, extensions);
 }
 

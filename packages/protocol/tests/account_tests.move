@@ -55,7 +55,7 @@ fun start(): (Scenario, Extensions, Account<Config>) {
     extensions.add(&cap, b"AccountMultisig".to_string(), @0x1, 1);
     extensions.add(&cap, b"AccountActions".to_string(), @0x2, 1);
 
-    let deps = deps::new(&extensions, false, vector[b"AccountProtocol".to_string()], vector[@account_protocol], vector[1]);
+    let deps = deps::new(&extensions, false, vector[b"AccountProtocol".to_string(), b"AccountMultisig".to_string()], vector[@account_protocol, @0x1], vector[1, 1]);
     let account = account::new(Config {}, deps, version::current(), Witness(), scenario.ctx());
     // create world
     destroy(cap);

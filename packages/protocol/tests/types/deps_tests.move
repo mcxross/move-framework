@@ -49,11 +49,11 @@ fun end(scenario: Scenario, extensions: Extensions) {
 fun test_deps_new_and_getters() {
     let (scenario, extensions) = start();
 
-    let deps = deps::new(&extensions, false, vector[b"AccountProtocol".to_string()], vector[@account_protocol], vector[1]);
+    let deps = deps::new(&extensions, false, vector[b"AccountProtocol".to_string(), b"AccountMultisig".to_string()], vector[@account_protocol, @0x1], vector[1, 1]);
     // assertions
     deps.check(version::current());
     // deps getters
-    assert!(deps.length() == 1);
+    assert!(deps.length() == 2);
     assert!(deps.contains_name(b"AccountProtocol".to_string()));
     assert!(deps.contains_addr(@account_protocol));
     // dep getters
@@ -73,11 +73,11 @@ fun test_deps_new_and_getters() {
 fun test_deps_new_latest_extensions() {
     let (scenario, extensions) = start();
 
-    let deps = deps::new_latest_extensions(&extensions, vector[b"AccountProtocol".to_string()]);
+    let deps = deps::new_latest_extensions(&extensions, vector[b"AccountProtocol".to_string(), b"AccountMultisig".to_string()]);
     // assertions
     deps.check(version::current());
     // deps getters
-    assert!(deps.length() == 1);
+    assert!(deps.length() == 2);
     assert!(deps.contains_name(b"AccountProtocol".to_string()));
     assert!(deps.contains_addr(@account_protocol));
     // dep getters
@@ -144,7 +144,7 @@ fun test_error_deps_add_addr_already_exists() {
 fun test_error_assert_is_dep() {
     let (scenario, extensions) = start();
 
-    let deps = deps::new(&extensions, false, vector[b"AccountProtocol".to_string()], vector[@account_protocol], vector[1]);
+    let deps = deps::new(&extensions, false, vector[b"AccountProtocol".to_string(), b"AccountMultisig".to_string()], vector[@account_protocol, @0x1], vector[1, 1]);
     deps.check(version_witness::new_for_testing(@0xDE9));
 
     end(scenario, extensions);
@@ -154,7 +154,7 @@ fun test_error_assert_is_dep() {
 fun test_error_name_not_found() {
     let (scenario, extensions) = start();
 
-    let deps = deps::new(&extensions, false, vector[b"AccountProtocol".to_string()], vector[@account_protocol], vector[1]);
+    let deps = deps::new(&extensions, false, vector[b"AccountProtocol".to_string(), b"AccountMultisig".to_string()], vector[@account_protocol, @0x1], vector[1, 1]);
     deps.get_by_name(b"Other".to_string());
 
     end(scenario, extensions);
@@ -164,7 +164,7 @@ fun test_error_name_not_found() {
 fun test_error_addr_not_found() {
     let (scenario, extensions) = start();
 
-    let deps = deps::new(&extensions, false, vector[b"AccountProtocol".to_string()], vector[@account_protocol], vector[1]);
+    let deps = deps::new(&extensions, false, vector[b"AccountProtocol".to_string(), b"AccountMultisig".to_string()], vector[@account_protocol, @0x1], vector[1, 1]);
     deps.get_by_addr(@0xA);
 
     end(scenario, extensions);
