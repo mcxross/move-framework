@@ -127,6 +127,7 @@ public fun remove(extensions: &mut Extensions, _: &AdminCap, name: String) {
 /// Adds a new version to the history of a package
 public fun update(extensions: &mut Extensions, _: &AdminCap, name: String, addr: address, version: u64) {
     let idx = extensions.get_idx_for_name(name);
+    assert!(!extensions.inner[idx].history.any!(|h| h.addr == addr), EExtensionAlreadyExists);
     extensions.inner[idx].history.push_back(History { addr, version });
 }
 
