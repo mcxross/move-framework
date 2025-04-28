@@ -10,4 +10,4 @@ subdir = "crates/sui-framework/packages/sui-framework"
 rev = "testnet"
 
 [addresses]
-account_extensions = "0x60bdbac4243b28773ca6d354fe5da75372552838d3fe766577bb48560600f27f"
+account_extensions = "0x2f10ccb3323bae290b908c48e383a4136e309ea47ec42d33f5671e4fd61f3953"
