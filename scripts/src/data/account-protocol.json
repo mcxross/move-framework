@@ -1,22 +1,22 @@
 [
   {
     "type": "0x2::coin::Coin<0x2::sui::SUI>",
-    "id": "0x2e726538ead7d55be5f566abd06cbe0a9eac2f9443c4d857fb2856e3331fe72b"
-  },
-  {
-    "type": "0x2::package::Publisher",
-    "id": "0x5bfadee92a0f1081c435374cdd8bb4e71180580b6637954402bd75295979fb07"
+    "id": "0x0038c5a7dc8a89df8449775982973fbd31fa0e3892e60b740dd8bcb3dc51c613"
   },
   {
     "type": "AccountProtocol",
-    "id": "0x881a13296bd931694fc9260ad1c81cd1a7dcd8793bc0200d95e4af413c34b64e"
-  },
-  {
-    "type": "0x881a13296bd931694fc9260ad1c81cd1a7dcd8793bc0200d95e4af413c34b64e::user::Registry",
-    "id": "0xaf66dc8c42e254f68ccaa7827fe115c920ee783c00a2ff5dfb37f59220fd9654"
+    "id": "0x58438e1f3ecdaee65fc2076647bf04ac173bc4bb1335ee64027a17cf9f0bf5a7"
   },
   {
     "type": "0x2::package::UpgradeCap",
-    "id": "0xe2f69957b7f1530143cbdd364282050d3b8f190ceed8400f9ecdb1487c2c48d0"
+    "id": "0x67bd2ba1e6063581739ccae68b4f4597e8dfa49a2da863d5a059808dd4972a11"
+  },
+  {
+    "type": "0x58438e1f3ecdaee65fc2076647bf04ac173bc4bb1335ee64027a17cf9f0bf5a7::user::Registry",
+    "id": "0x85fd9c514e70759aa1545cca142b78b9f727bb0be885e5a9b1cb4288871ef7dd"
+  },
+  {
+    "type": "0x2::package::Publisher",
+    "id": "0xd69504d33e0f60ac492f13083e6cb524a4acb8c040dcd2a628cfac163891901e"
   }
 ]

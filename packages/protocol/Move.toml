@@ -1,17 +1,17 @@
 [package]
 name = "AccountProtocol"
 edition = "2024.beta"
-license = "MIT"
+license = "Apache-2.0"
 authors = [ "Thouny (thouny@tuta.io)" ]
-
-[dependencies.Sui]
-git = "https://github.com/MystenLabs/sui.git"
-subdir = "crates/sui-framework/packages/sui-framework"
-rev = "framework/mainnet"
 
 [dependencies.AccountExtensions]
 local = "../extensions"
 
+[dependencies.Sui]
+git = "https://github.com/MystenLabs/sui.git"
+subdir = "crates/sui-framework/packages/sui-framework"
+rev = "testnet"
+
 [addresses]
-account_protocol = "0x881a13296bd931694fc9260ad1c81cd1a7dcd8793bc0200d95e4af413c34b64e"
-account_extensions = "0x78176a75fe6c33bcf2ded013e74c466e9dac88c6d82347c94f15d139dee17e9e"
+account_protocol = "0x58438e1f3ecdaee65fc2076647bf04ac173bc4bb1335ee64027a17cf9f0bf5a7"
+account_extensions = "0x60bdbac4243b28773ca6d354fe5da75372552838d3fe766577bb48560600f27f"

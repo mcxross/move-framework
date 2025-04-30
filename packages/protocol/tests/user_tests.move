@@ -11,6 +11,8 @@ use account_extensions::extensions::{Self, Extensions, AdminCap};
 use account_protocol::{
     account::{Self, Account},
     user::{Self, Registry, User},
+    deps,
+    version,
 };
 
 // === Constants ===
@@ -24,7 +26,6 @@ public struct Witness() has drop;
 public struct DummyIntent() has drop;
 
 public struct DummyConfig has copy, drop, store {}
-public struct DummyOutcome has copy, drop, store {}
 
 // === Helpers ===
 
@@ -52,8 +53,9 @@ fun end(scenario: Scenario, registry: Registry, extensions: Extensions) {
     ts::end(scenario);
 }
 
-fun create_account(extensions: &Extensions, ctx: &mut TxContext): Account<DummyConfig, DummyOutcome> {
-    account::new(extensions, DummyConfig {}, false, vector[], vector[], vector[], ctx)
+fun create_account(extensions: &Extensions, ctx: &mut TxContext): Account<DummyConfig> {
+    let deps = deps::new_latest_extensions(extensions, vector[b"AccountProtocol".to_string()]);
+    account::new(DummyConfig {}, deps, version::current(), Witness(), ctx)
 }
 
 // === Tests ===

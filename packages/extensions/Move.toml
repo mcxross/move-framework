@@ -1,13 +1,13 @@
 [package]
 name = "AccountExtensions"
 edition = "2024.beta"
-license = "MIT"
+license = "Apache-2.0"
 authors = [ "Thouny (thouny@tuta.io)" ]
 
 [dependencies.Sui]
 git = "https://github.com/MystenLabs/sui.git"
 subdir = "crates/sui-framework/packages/sui-framework"
-rev = "framework/mainnet"
+rev = "testnet"
 
 [addresses]
-account_extensions = "0x78176a75fe6c33bcf2ded013e74c466e9dac88c6d82347c94f15d139dee17e9e"
+account_extensions = "0x60bdbac4243b28773ca6d354fe5da75372552838d3fe766577bb48560600f27f"

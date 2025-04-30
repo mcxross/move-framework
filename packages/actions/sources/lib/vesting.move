@@ -13,9 +13,8 @@ use sui::{
 };
 use account_protocol::{
     account::{Account, Auth},
-    intents::{Intent, Expired},
+    intents::{Expired, Intent},
     executable::Executable,
-    version_witness::VersionWitness,
 };
 
 // === Errors ===
@@ -85,10 +84,10 @@ public fun claim<CoinType>(vesting: &mut Vesting<CoinType>, cap: &ClaimCap, cloc
 }
 
 // Authorized address can cancel the vesting.
-public fun cancel_payment<Config, Outcome, CoinType>(
+public fun cancel_payment<Config, CoinType>(
     auth: Auth,
     vesting: Vesting<CoinType>, 
-    account: &Account<Config, Outcome>,
+    account: &Account<Config>,
     ctx: &mut TxContext
 ) {
     account.verify(auth);
@@ -118,28 +117,24 @@ public fun destroy_cap(cap: ClaimCap) {
 // Intent functions
 
 /// Creates a VestAction and adds it to an intent.
-public fun new_vest<Config, Outcome, IW: drop>(
-    intent: &mut Intent<Outcome>, 
-    account: &Account<Config, Outcome>,
+public fun new_vest<Outcome, IW: drop>(
+    intent: &mut Intent<Outcome>,
     start_timestamp: u64,
     end_timestamp: u64,
     recipient: address,
-    version_witness: VersionWitness,
     intent_witness: IW,
 ) {
-    account.add_action(intent, VestAction { start_timestamp, end_timestamp, recipient }, version_witness, intent_witness);
+    intent.add_action(VestAction { start_timestamp, end_timestamp, recipient }, intent_witness);
 }
 
 /// Processes a VestAction and creates a vesting.
-public fun do_vest<Config, Outcome, CoinType, IW: copy + drop>(
-    executable: &mut Executable, 
-    account: &mut Account<Config, Outcome>, 
+public fun do_vest<Outcome: store, CoinType, IW: drop>(
+    executable: &mut Executable<Outcome>, 
     coin: Coin<CoinType>,
-    version_witness: VersionWitness,
     intent_witness: IW,
     ctx: &mut TxContext
 ) {    
-    let action: &VestAction = account.process_action(executable, version_witness, intent_witness);
+    let action: &VestAction = executable.next_action(intent_witness);
 
     transfer::share_object(Vesting<CoinType> { 
         id: object::new(ctx), 

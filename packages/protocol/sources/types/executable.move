@@ -6,14 +6,14 @@ module account_protocol::executable;
 
 // === Imports ===
 
-use account_protocol::issuer::Issuer;
+use account_protocol::intents::Intent;
 
 // === Structs ===
 
 /// Hot potato ensuring the actions in the intent are executed as intended.
-public struct Executable {
-    // issuer of the corresponding intent
-    issuer: Issuer,
+public struct Executable<Outcome: store> {
+    // intent to return or destroy (if execution_times empty) after execution
+    intent: Intent<Outcome>,
     // current action index
     action_idx: u64,
 }
@@ -21,30 +21,47 @@ public struct Executable {
 // === View functions ===
 
 /// Returns the issuer of the corresponding intent
-public fun issuer(executable: &Executable): &Issuer {
-    &executable.issuer
+public fun intent<Outcome: store>(executable: &Executable<Outcome>): &Intent<Outcome> {
+    &executable.intent
 }
 
 /// Returns the current action index
-public fun action_idx(executable: &Executable): u64 {
+public fun action_idx<Outcome: store>(executable: &Executable<Outcome>): u64 {
     executable.action_idx
+}
+
+public fun contains_action<Outcome: store, Action: store>(
+    executable: &mut Executable<Outcome>,
+): bool {
+    let actions_length = executable.intent().actions().length();
+    let mut contains = false;
+    
+    actions_length.do!(|i| {
+        if (executable.intent.actions().contains_with_type<u64, Action>(i)) contains = true;
+    });
+
+    contains
+}
+
+public fun next_action<Outcome: store, Action: store, IW: drop>(
+    executable: &mut Executable<Outcome>,
+    intent_witness: IW,
+): &Action {
+    executable.intent.assert_is_witness(intent_witness);
+
+    let action_idx = executable.action_idx;
+    executable.action_idx = executable.action_idx + 1;
+    
+    executable.intent().actions().borrow(action_idx)
 }
 
 // === Package functions ===
 
-/// Creates a new executable from an issuer
-public(package) fun new(issuer: Issuer): Executable {
-    Executable { issuer, action_idx: 0 }
+public(package) fun new<Outcome: store>(intent: Intent<Outcome>): Executable<Outcome> {
+    Executable { intent, action_idx: 0 }
 }
 
-/// Returns the next action index
-public(package) fun next_action(executable: &mut Executable): u64 {
-    let action_idx = executable.action_idx;
-    executable.action_idx = executable.action_idx + 1;
-    action_idx
-}
-
-/// Destroys the executable
-public(package) fun destroy(executable: Executable) {
-    let Executable { .. } = executable;
+public(package) fun destroy<Outcome: store>(executable: Executable<Outcome>): Intent<Outcome> {
+    let Executable { intent, .. } = executable;
+    intent
 }

@@ -17,36 +17,40 @@ module account_protocol::config;
 use std::string::String;
 use account_protocol::{
     account::{Account, Auth},
-    intents::Expired,
+    intents::{Expired, Params},
     executable::Executable,
-    deps::{Self, Deps},
+    deps::{Self, Dep},
     metadata,
     version,
+    intent_interface,
 };
 use account_extensions::extensions::Extensions;
+
+// === Aliases ===
+
+use fun intent_interface::build_intent as Account.build_intent;
+use fun intent_interface::process_intent as Account.process_intent;
 
 // === Structs ===
 
 /// Intent Witness
-public struct ConfigDepsIntent() has copy, drop;
+public struct ConfigDepsIntent() has drop;
 /// Intent Witness
-public struct ToggleUnverifiedAllowedIntent() has copy, drop;
+public struct ToggleUnverifiedAllowedIntent() has drop;
 
 /// Action struct wrapping the deps account field into an action
 public struct ConfigDepsAction has store {
-    deps: Deps,
+    deps: vector<Dep>,
 }
 /// Action struct wrapping the unverified_allowed account field into an action
-public struct ToggleUnverifiedAllowedAction has store {
-    new_value: bool,
-}
+public struct ToggleUnverifiedAllowedAction has store {}
 
 // === Public functions ===
 
 /// Authorized addresses can edit the metadata of the account
-public fun edit_metadata<Config, Outcome>(
+public fun edit_metadata<Config>(
     auth: Auth,
-    account: &mut Account<Config, Outcome>,
+    account: &mut Account<Config>,
     keys: vector<String>,
     values: vector<String>,
 ) {
@@ -55,9 +59,9 @@ public fun edit_metadata<Config, Outcome>(
 }
 
 /// Authorized addresses can update the existing dependencies of the account to the latest versions
-public fun update_extensions_to_latest<Config, Outcome>(
+public fun update_extensions_to_latest<Config>(
     auth: Auth,
-    account: &mut Account<Config, Outcome>,
+    account: &mut Account<Config>,
     extensions: &Extensions,
 ) {
     account.verify(auth);
@@ -79,19 +83,16 @@ public fun update_extensions_to_latest<Config, Outcome>(
         i = i + 1;
     };
 
-    *account.deps_mut(version::current()) = 
-        deps::new(extensions, account.deps().unverified_allowed(), new_names, new_addrs, new_versions);
+    *account.deps_mut(version::current()).inner_mut() = 
+        deps::new_inner(extensions, account.deps(), new_names, new_addrs, new_versions);
 }
 
 /// Creates an intent to update the dependencies of the account
-public fun request_config_deps<Config, Outcome>(
+public fun request_config_deps<Config, Outcome: store>(
     auth: Auth,
+    account: &mut Account<Config>, 
+    params: Params,
     outcome: Outcome,
-    account: &mut Account<Config, Outcome>, 
-    key: String,
-    description: String,
-    execution_time: u64,
-    expiration_time: u64,
     extensions: &Extensions,
     names: vector<String>,
     addresses: vector<address>,
@@ -99,33 +100,35 @@ public fun request_config_deps<Config, Outcome>(
     ctx: &mut TxContext
 ) {
     account.verify(auth);
+    params.assert_single_execution();
+    
+    let deps = deps::new_inner(extensions, account.deps(), names, addresses, versions);
 
-    let mut intent = account.create_intent(
-        key,
-        description,
-        vector[execution_time],
-        expiration_time,
+    account.build_intent!(
+        params,
+        outcome, 
         b"".to_string(),
-        outcome,
         version::current(),
-        ConfigDepsIntent(),
-        ctx
+        ConfigDepsIntent(),   
+        ctx,
+        |intent, iw| intent.add_action(ConfigDepsAction { deps }, iw),
     );
-
-    let deps = deps::new(extensions, account.deps().unverified_allowed(), names, addresses, versions);
-
-    account.add_action(&mut intent, ConfigDepsAction { deps }, version::current(), ConfigDepsIntent());
-    account.add_intent(intent, version::current(), ConfigDepsIntent());
 }
 
 /// Executes an intent updating the dependencies of the account
-public fun execute_config_deps<Config, Outcome>(
-    mut executable: Executable,
-    account: &mut Account<Config, Outcome>, 
+public fun execute_config_deps<Config, Outcome: store>(
+    executable: &mut Executable<Outcome>,
+    account: &mut Account<Config>,  
 ) {
-    let action: &ConfigDepsAction = account.process_action(&mut executable, version::current(), ConfigDepsIntent());    
-    *account.deps_mut(version::current()) = action.deps;
-    account.confirm_execution(executable, version::current(), ConfigDepsIntent());
+    account.process_intent!(
+        executable, 
+        version::current(),   
+        ConfigDepsIntent(), 
+        |executable, iw| {
+            let ConfigDepsAction { deps } = executable.next_action<_, ConfigDepsAction, _>(iw);
+            *account.deps_mut(version::current()).inner_mut() = *deps;
+        }
+    ); 
 } 
 
 /// Deletes the ConfigDepsAction from an expired intent
@@ -134,48 +137,45 @@ public fun delete_config_deps(expired: &mut Expired) {
 }
 
 /// Creates an intent to toggle the unverified_allowed flag of the account
-public fun request_toggle_unverified_allowed<Config, Outcome>(
+public fun request_toggle_unverified_allowed<Config, Outcome: store>(
     auth: Auth,
+    account: &mut Account<Config>, 
+    params: Params,
     outcome: Outcome,
-    account: &mut Account<Config, Outcome>, 
-    key: String,
-    description: String,
-    execution_time: u64,
-    expiration_time: u64,
     ctx: &mut TxContext
 ) {
     account.verify(auth);
-
-    let mut intent = account.create_intent(
-        key,
-        description,
-        vector[execution_time],
-        expiration_time,
-        b"".to_string(),
+    params.assert_single_execution();
+    
+    account.build_intent!(
+        params,
         outcome,
+        b"".to_string(),
         version::current(),
         ToggleUnverifiedAllowedIntent(),
-        ctx
+        ctx,
+        |intent, iw| intent.add_action(ToggleUnverifiedAllowedAction {}, iw),
     );
-
-    let new_value = account.deps().unverified_allowed();
-
-    account.add_action(&mut intent, ToggleUnverifiedAllowedAction { new_value }, version::current(), ToggleUnverifiedAllowedIntent());
-    account.add_intent(intent, version::current(), ToggleUnverifiedAllowedIntent());
 }
 
 /// Executes an intent toggling the unverified_allowed flag of the account
-public fun execute_toggle_unverified_allowed<Config, Outcome>(
-    mut executable: Executable,
-    account: &mut Account<Config, Outcome>, 
+public fun execute_toggle_unverified_allowed<Config, Outcome: store>(
+    executable: &mut Executable<Outcome>,
+    account: &mut Account<Config>, 
 ) {
-    let _action: &ToggleUnverifiedAllowedAction = account.process_action(&mut executable, version::current(), ToggleUnverifiedAllowedIntent());    
-    account.deps_mut(version::current()).toggle_unverified_allowed();
-    account.confirm_execution(executable, version::current(), ToggleUnverifiedAllowedIntent());
+    account.process_intent!(
+        executable, 
+        version::current(),
+        ToggleUnverifiedAllowedIntent(),
+        |executable, iw| {
+            let _action: &ToggleUnverifiedAllowedAction = executable.next_action(iw);
+            account.deps_mut(version::current()).toggle_unverified_allowed()
+        },
+    );    
 }
 
 /// Deletes the ToggleUnverifiedAllowedAction from an expired intent
 public fun delete_toggle_unverified_allowed(expired: &mut Expired) {
-    let ToggleUnverifiedAllowedAction { .. } = expired.remove_action();
+    let ToggleUnverifiedAllowedAction {} = expired.remove_action();
 }
 

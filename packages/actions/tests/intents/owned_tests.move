@@ -14,6 +14,8 @@ use account_extensions::extensions::{Self, Extensions, AdminCap};
 use account_protocol::{
     account::{Self, Account},
     owned,
+    deps,
+    intents,
 };
 use account_actions::{
     owned_intents,
@@ -36,7 +38,7 @@ public struct Outcome has copy, drop, store {}
 
 // === Helpers ===
 
-fun start(): (Scenario, Extensions, Account<Config, Outcome>, Clock) {
+fun start(): (Scenario, Extensions, Account<Config>, Clock) {
     let mut scenario = ts::begin(OWNER);
     // publish package
     extensions::init_for_testing(scenario.ctx());
@@ -48,14 +50,15 @@ fun start(): (Scenario, Extensions, Account<Config, Outcome>, Clock) {
     extensions.add(&cap, b"AccountProtocol".to_string(), @account_protocol, 1);
     extensions.add(&cap, b"AccountActions".to_string(), @account_actions, 1);
 
-    let account = account::new(&extensions, Config {}, false, vector[b"AccountProtocol".to_string(), b"AccountActions".to_string()], vector[@account_protocol, @account_actions], vector[1, 1], scenario.ctx());
+    let deps = deps::new_latest_extensions(&extensions, vector[b"AccountProtocol".to_string(), b"AccountActions".to_string()]);
+    let account = account::new(Config {}, deps, version::current(), Witness(), scenario.ctx());
     let clock = clock::create_for_testing(scenario.ctx());
     // create world
     destroy(cap);
     (scenario, extensions, account, clock)
 }
 
-fun end(scenario: Scenario, extensions: Extensions, account: Account<Config, Outcome>, clock: Clock) {
+fun end(scenario: Scenario, extensions: Extensions, account: Account<Config>, clock: Clock) {
     destroy(extensions);
     destroy(account);
     destroy(clock);
@@ -84,24 +87,25 @@ fun test_request_execute_transfer_to_vault() {
 
     let auth = account.new_auth(version::current(), Witness());
     let outcome = Outcome {};
+    let params = intents::new_params(   
+        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock, scenario.ctx()
+    );
     owned_intents::request_withdraw_and_transfer_to_vault<Config, Outcome, SUI>(
         auth, 
-        outcome, 
         &mut account, 
-        key, 
-        b"".to_string(), 
-        0, 
-        1, 
+        params,
+        outcome, 
         id,
         1,
         b"Degen".to_string(),
         scenario.ctx()
     );
 
-    let (executable, _) = account::execute_intent(&mut account, key, &clock, version::current(), Witness());
-    owned_intents::execute_withdraw_and_transfer_to_vault<Config, Outcome, SUI>(executable, &mut account, ts::receiving_ticket_by_id<Coin<SUI>>(id));
+    let (_, mut executable) = account.create_executable<_, Outcome, _>(key, &clock, version::current(), Witness());
+    owned_intents::execute_withdraw_and_transfer_to_vault<Config, Outcome, SUI>(&mut executable, &mut account, ts::receiving_ticket_by_id<Coin<SUI>>(id));
+    account.confirm_execution(executable);
 
-    let mut expired = account.destroy_empty_intent(key);
+    let mut expired = account.destroy_empty_intent<_, Outcome>(key);
     owned::delete_withdraw(&mut expired, &mut account);
     vault::delete_deposit<SUI>(&mut expired);
     expired.destroy_empty();
@@ -123,26 +127,26 @@ fun test_request_execute_transfer() {
 
     let auth = account.new_auth(version::current(), Witness());
     let outcome = Outcome {};
+    let params = intents::new_params(
+        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock, scenario.ctx()
+    );
     owned_intents::request_withdraw_and_transfer<Config, Outcome>(
         auth, 
-        outcome, 
         &mut account, 
-        key, 
-        b"".to_string(), 
-        0, 
-        1, 
+        params,
+        outcome, 
         vector[id1, id2],
         vector[@0x1, @0x2],
         scenario.ctx()
     );
 
-    let (mut executable, _) = account::execute_intent(&mut account, key, &clock, version::current(), Witness());
+    let (_, mut executable) = account.create_executable<_, Outcome, _>(key, &clock, version::current(), Witness());
     // loop over execute_transfer to execute each action
-    owned_intents::execute_withdraw_and_transfer<Config, Outcome, Coin<SUI>>(&mut executable, &mut account, ts::receiving_ticket_by_id<Coin<SUI>>(id1));
-    owned_intents::execute_withdraw_and_transfer<Config, Outcome, Coin<SUI>>(&mut executable, &mut account, ts::receiving_ticket_by_id<Coin<SUI>>(id2));
-    owned_intents::complete_withdraw_and_transfer(executable, &account);
+    owned_intents::execute_withdraw_and_transfer<_, Outcome, Coin<SUI>>(&mut executable, &mut account, ts::receiving_ticket_by_id<Coin<SUI>>(id1));
+    owned_intents::execute_withdraw_and_transfer<_, Outcome, Coin<SUI>>(&mut executable, &mut account, ts::receiving_ticket_by_id<Coin<SUI>>(id2));
+    account.confirm_execution(executable);
 
-    let mut expired = account.destroy_empty_intent(key);
+    let mut expired = account.destroy_empty_intent<_, Outcome>(key);
     owned::delete_withdraw(&mut expired, &mut account);
     acc_transfer::delete_transfer(&mut expired);
     owned::delete_withdraw(&mut expired, &mut account);
@@ -169,14 +173,14 @@ fun test_request_execute_vesting() {
 
     let auth = account.new_auth(version::current(), Witness());
     let outcome = Outcome {};
+    let params = intents::new_params(
+        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock, scenario.ctx()
+    );
     owned_intents::request_withdraw_and_vest<Config, Outcome>(
         auth, 
-        outcome, 
         &mut account, 
-        key, 
-        b"".to_string(), 
-        0, 
-        1,
+        params,
+        outcome, 
         id, 
         1,
         2,
@@ -184,10 +188,11 @@ fun test_request_execute_vesting() {
         scenario.ctx()
     );
 
-    let (executable, _) = account::execute_intent(&mut account, key, &clock, version::current(), Witness());
-    owned_intents::execute_withdraw_and_vest<Config, Outcome, SUI>(executable, &mut account, ts::receiving_ticket_by_id<Coin<SUI>>(id), scenario.ctx());
+    let (_, mut executable) = account.create_executable<_, Outcome, _>(key, &clock, version::current(), Witness());
+    owned_intents::execute_withdraw_and_vest<Config, Outcome, SUI>(&mut executable, &mut account, ts::receiving_ticket_by_id<Coin<SUI>>(id), scenario.ctx());
+    account.confirm_execution(executable);
 
-    let mut expired = account.destroy_empty_intent(key);
+    let mut expired = account.destroy_empty_intent<_, Outcome>(key);
     owned::delete_withdraw(&mut expired, &mut account);
     vesting::delete_vest(&mut expired);
     expired.destroy_empty();
@@ -195,7 +200,7 @@ fun test_request_execute_vesting() {
     scenario.next_tx(OWNER);
     let stream = scenario.take_shared<Vesting<SUI>>();
     assert!(stream.balance_value() == 5);
-    assert!(stream.last_claimed() == 0);
+    assert!(stream.last_claimed() == 1);
     assert!(stream.start_timestamp() == 1);
     assert!(stream.end_timestamp() == 2);
     assert!(stream.recipient() == @0x1);
@@ -210,14 +215,14 @@ fun test_error_request_transfer_not_same_length() {
 
     let auth = account.new_auth(version::current(), Witness());
     let outcome = Outcome {};
+    let params = intents::new_params(
+        b"dummy".to_string(), b"".to_string(), vector[0], 1, &clock, scenario.ctx()
+    );
     owned_intents::request_withdraw_and_transfer<Config, Outcome>(
         auth, 
-        outcome, 
         &mut account, 
-        b"dummy".to_string(),
-        b"".to_string(), 
-        0, 
-        1, 
+        params,
+        outcome, 
         vector[@0x1D.to_id()],
         vector[@0x1, @0x2],
         scenario.ctx()
