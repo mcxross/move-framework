@@ -467,7 +467,7 @@ fun test_error_cannot_confirm_execution_before_all_actions_executed() {
 }
 
 #[test, expected_failure(abort_code = account::ECantBeRemovedYet)]
-fun test_error_cannot_destroy_intent_without_executing_the_action() {
+fun test_error_cannot_destroy_intent_without_executing() {
     let (mut scenario, extensions, mut account) = start();
     let clock = clock::create_for_testing(scenario.ctx());
 
