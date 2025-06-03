@@ -5,18 +5,22 @@
   },
   {
     "type": "AccountExtensions",
-    "id": "0x2f10ccb3323bae290b908c48e383a4136e309ea47ec42d33f5671e4fd61f3953"
+    "id": "0x3506d95c270e2ae16bd3cbf11b701808390807450697a1bd302b29e7b59e8fdc"
   },
   {
-    "type": "0x2f10ccb3323bae290b908c48e383a4136e309ea47ec42d33f5671e4fd61f3953::extensions::AdminCap",
-    "id": "0x31e5969abb3360983a6b7253563f020a9fbbab1923630c1b407862e0997bdbca"
+    "type": "0x3506d95c270e2ae16bd3cbf11b701808390807450697a1bd302b29e7b59e8fdc::extensions::Extensions",
+    "id": "0x51215a4e0df2518a0c9a4a22c3d1c774e0b69861545bd19189638cc05eb894dc"
+  },
+  {
+    "type": "0x3506d95c270e2ae16bd3cbf11b701808390807450697a1bd302b29e7b59e8fdc::extensions::AdminCap",
+    "id": "0x9e9fe2b7b2f45349aeb786adfdd1e3ac4c94de0332eada44f2b5aac7e95418fa"
   },
   {
     "type": "0x2::package::UpgradeCap",
-    "id": "0x8ecb7eb21d5e685c39ea8a0753d1fa522fd008ad3dc9093a140f945fd023d73d"
+    "id": "0xf01991ef294396dfcc2a8b37eeba900e726977eef7569c78a9ab3886f66b59a1"
   },
   {
-    "type": "0x2f10ccb3323bae290b908c48e383a4136e309ea47ec42d33f5671e4fd61f3953::extensions::Extensions",
-    "id": "0xd3efc4100464aa1505362c16f92ed01f5c9af93d4312b33bc717ca33502806c2"
+    "type": "0x2::coin::Coin<0x2::sui::SUI>",
+    "id": "0x8ed8f782919039c3a2c46e7a045fa76446d294f5f941b63330800ef2b81616ee"
   }
 ]
