@@ -37,6 +37,55 @@ fun full_role(): String {
 // === Tests ===
 
 #[test]
+fun test_params() {
+    let mut scenario = ts::begin(OWNER);
+    let clock = clock::create_for_testing(scenario.ctx());
+    
+    let params = intents::new_params(
+        b"one".to_string(),
+        b"".to_string(),
+        vector[0],
+        1,
+        &clock,
+        scenario.ctx()
+    );
+
+    assert!(params.key() == b"one".to_string());
+    assert!(params.description() == b"".to_string());
+    assert!(params.creation_time() == clock.timestamp_ms());
+    assert!(params.execution_times() == vector[0]);
+    assert!(params.expiration_time() == 1);
+
+    destroy(params);
+    destroy(clock);
+    scenario.end();
+}
+
+#[test]
+fun test_params_rand() {
+    let mut scenario = ts::begin(OWNER);
+    let clock = clock::create_for_testing(scenario.ctx());
+    
+    let (params, key) = intents::new_params_with_rand_key(
+        b"".to_string(),
+        vector[0],
+        1,
+        &clock,
+        scenario.ctx()
+    );
+
+    assert!(params.key() == key);
+    assert!(params.description() == b"".to_string());
+    assert!(params.creation_time() == clock.timestamp_ms());
+    assert!(params.execution_times() == vector[0]);
+    assert!(params.expiration_time() == 1);
+
+    destroy(params);
+    destroy(clock);
+    scenario.end();
+}
+
+#[test]
 fun test_getters() {
     let mut scenario = ts::begin(OWNER);
     let mut clock = clock::create_for_testing(scenario.ctx());

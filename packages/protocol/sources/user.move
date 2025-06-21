@@ -77,7 +77,7 @@ public fun transfer(registry: &mut Registry, user: User, recipient: address, ctx
     // if the sender is not in the registry, then the User has been just created
     if (registry.users.contains(ctx.sender())) {
         let id = registry.users.remove(ctx.sender());
-        assert!(id == object::id(&user), EWrongUserId); // should never happen
+        assert!(id == object::id(&user), EWrongUserId); // should never throw
     };
 
     registry.users.add(recipient, object::id(&user));

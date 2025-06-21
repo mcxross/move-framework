@@ -55,7 +55,7 @@ fun start(): (Scenario, Extensions, Account<Config>) {
     extensions.add(&cap, b"AccountMultisig".to_string(), @0x1, 1);
     extensions.add(&cap, b"AccountActions".to_string(), @0x2, 1);
 
-    let deps = deps::new(&extensions, false, vector[b"AccountProtocol".to_string()], vector[@account_protocol], vector[1]);
+    let deps = deps::new(&extensions, false, vector[b"AccountProtocol".to_string(), b"AccountMultisig".to_string()], vector[@account_protocol, @0x1], vector[1, 1]);
     let account = account::new(Config {}, deps, version::current(), Witness(), scenario.ctx());
     // create world
     destroy(cap);
@@ -467,7 +467,7 @@ fun test_error_cannot_confirm_execution_before_all_actions_executed() {
 }
 
 #[test, expected_failure(abort_code = account::ECantBeRemovedYet)]
-fun test_error_cannot_destroy_intent_without_executing_the_action() {
+fun test_error_cannot_destroy_intent_without_executing() {
     let (mut scenario, extensions, mut account) = start();
     let clock = clock::create_for_testing(scenario.ctx());
 

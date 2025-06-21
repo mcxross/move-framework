@@ -162,6 +162,14 @@ fun test_error_update_not_extension() {
     end(scenario, extensions, cap);
 }
 
+#[test, expected_failure(abort_code = extensions::EExtensionAlreadyExists)]
+fun test_error_update_same_address() {
+    let (scenario, mut extensions, cap) = start();
+    extensions.add(&cap, b"A".to_string(), @0x0, 1);
+    extensions.update(&cap, b"A".to_string(), @0x0, 2);
+    end(scenario, extensions, cap);
+}
+
 #[test, expected_failure(abort_code = extensions::EExtensionNotFound)]
 fun test_error_remove_not_extension() {
     let (scenario, mut extensions, cap) = start();

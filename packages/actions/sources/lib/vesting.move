@@ -135,9 +135,15 @@ public fun do_vest<Outcome: store, CoinType, IW: drop>(
     ctx: &mut TxContext
 ) {    
     let action: &VestAction = executable.next_action(intent_witness);
+    let vesting_id = object::new(ctx);
+
+    transfer::transfer(
+        ClaimCap { id: object::new(ctx), vesting_id: vesting_id.to_inner() }, 
+        action.recipient
+    );
 
     transfer::share_object(Vesting<CoinType> { 
-        id: object::new(ctx), 
+        id: vesting_id, 
         balance: coin.into_balance(), 
         last_claimed: action.start_timestamp,
         start_timestamp: action.start_timestamp,

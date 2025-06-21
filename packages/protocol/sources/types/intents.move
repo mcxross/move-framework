@@ -112,7 +112,7 @@ public fun new_params(
     assert!(!execution_times.is_empty(), ENoExecutionTime);
     let mut i = 0;
     while (i < vector::length(&execution_times) - 1) {
-        assert!(execution_times[i] < execution_times[i + 1], EExecutionTimesNotAscending);
+        assert!(execution_times[i] <= execution_times[i + 1], EExecutionTimesNotAscending);
         i = i + 1;
     };
     
@@ -136,25 +136,10 @@ public fun new_params_with_rand_key(
     clock: &Clock,
     ctx: &mut TxContext,
 ): (Params, String) {
-    assert!(!execution_times.is_empty(), ENoExecutionTime);
-    let mut i = 0;
-    while (i < vector::length(&execution_times) - 1) {
-        assert!(execution_times[i] < execution_times[i + 1], EExecutionTimesNotAscending);
-        i = i + 1;
-    };
-    
     let key = ctx.fresh_object_address().to_string();
-    let fields = ParamsFieldsV1 { 
-        key, 
-        description, 
-        creation_time: clock.timestamp_ms(), 
-        execution_times, 
-        expiration_time 
-    };
-    let mut id = object::new(ctx);
-    id.df_add(true, fields);
+    let params = new_params(key, description, execution_times, expiration_time, clock, ctx);
 
-    (Params { id }, key)
+    (params, key)
 }
 
 public fun add_action<Outcome, Action: store, IW: drop>(

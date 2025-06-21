@@ -25,7 +25,7 @@ const EObjectLocked: u64 = 1;
 
 /// Action guarding access to account owned objects which can only be received via this action
 public struct WithdrawAction has store {
-    // the owned objects we want to access
+    // the owned object we want to access
     object_id: ID,
 }
 

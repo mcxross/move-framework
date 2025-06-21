@@ -17,7 +17,7 @@ const OWNER: address = @0xCAFE;
 // === Tests ===
 
 #[test]
-fun test_metadata_new() {
+fun test_metadata_empty() {
     let scenario = ts::begin(OWNER);
 
     let metadata = metadata::empty();
